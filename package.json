@@ -1,0 +1,49 @@
+{
+  "name": "aem-log-viewer",
+  "private": true,
+  "version": "1.0.1",
+  "type": "module",
+  "description": "AEM Log Viewer",
+  "author": "Nhan Tran",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thnhan1/log-viewer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thnhan1/log-viewer/issues"
+  },
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development tsx server/index.ts",
+    "dev:watch": "cross-env NODE_ENV=development tsx watch server/index.ts",
+    "build": "tsc -p tsconfig.server.json && vite build",
+    "start": "cross-env NODE_ENV=production node dist/server/index.js",
+    "preview": "cross-env NODE_ENV=production npm run start"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.13.23",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.20.0"
+  },
+  "engines": {
+    "node": ">=16.17.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^18.19.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@tailwindcss/postcss": "^4.1.12",
+    "cross-env": "^7.0.3",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.1.12",
+    "tsx": "^3.14.0",
+    "typescript": "^5.3.3",
+    "vite": "^4.5.3"
+  }
+}

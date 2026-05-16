@@ -1,0 +1,344 @@
+@import "tailwindcss";
+
+@theme {
+  /* macOS dark palette */
+  --color-bg: #1c1c1e;
+  --color-sidebar: #1c1c1e;
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-text: #f5f5f7;
+  --color-muted: #98989d;
+  --color-line-num: #636366;
+  --color-selection: rgba(10, 132, 255, 0.28);
+
+  /* Input / form controls */
+  --color-input: rgba(255, 255, 255, 0.055);
+  --color-input-border: rgba(255, 255, 255, 0.10);
+
+  /* Buttons */
+  --color-btn: rgba(255, 255, 255, 0.07);
+  --color-btn-hover: rgba(255, 255, 255, 0.12);
+  --color-btn-text: #f5f5f7;
+
+  /* Tabs */
+  --color-tab-active: #1c1c1e;
+  --color-tab-inactive: rgba(255, 255, 255, 0.03);
+
+  /* Status bar */
+  --color-statusbar: #242426;
+
+  /* Accent */
+  --color-accent: #0a84ff;
+
+  /* Log levels — Apple system colors (dark mode) */
+  --color-error: #ff453a;
+  --color-warning: #ff9f0a;
+  --color-info: #64d2ff;
+  --color-debug: #30d158;
+  --color-trace: #8e8e93;
+
+  /* Search highlights */
+  --color-hl-bg: rgba(255, 214, 10, 0.38);
+  --color-hl-text: #1c1c1e;
+
+  /* Danger */
+  --color-danger: #ff453a;
+
+  /* Log line syntax tokens */
+  --color-bracket: #8e8e93;
+  --color-method: #ffd60a;
+  --color-path: #64d2ff;
+  --color-fqcn: #ff9f0a;
+
+  /* Font sizes */
+  --font-size-ui: var(--lv-font-ui, 12px);
+  --font-size-mono: var(--lv-font-mono, 13px);
+
+  /* Font families — SF system stack */
+  --font-sans: var(--lv-font-family-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif);
+  --font-mono: var(--lv-font-family-log, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace);
+
+  /* Disable default Tailwind palette */
+  --color-red-500: #ff453a;
+  --color-blue-500: #0a84ff;
+  --color-green-500: #30d158;
+  --color-yellow-500: #ffd60a;
+  --color-gray-500: #8e8e93;
+  --color-white: #fff;
+  --color-black: #000;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+}
+
+/* ===== Base ===== */
+:root {
+  --lv-font-ui: 12px;
+  --lv-font-mono: 13px;
+  --lv-search-mark-bg: rgba(255, 214, 10, 0.38);
+  --lv-search-row-bg: rgba(255, 214, 10, 0.08);
+  --lv-search-active-bg: rgba(255, 214, 10, 0.16);
+  --lv-search-active-ring: rgba(255, 214, 10, 0.55);
+  --lv-radius-sm: 6px;
+  --lv-radius: 8px;
+  --lv-radius-lg: 10px;
+  --lv-glass-blur: blur(20px) saturate(180%);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-text antialiased;
+  font-size: var(--lv-font-ui);
+  font-family: var(--lv-font-family-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Frosted glass surfaces ===== */
+.glass-sidebar {
+  background: var(--theme-glass-sidebar);
+  backdrop-filter: var(--lv-glass-blur);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+}
+
+.glass-toolbar {
+  background: var(--theme-glass-toolbar);
+  backdrop-filter: var(--lv-glass-blur);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+}
+
+.glass-modal {
+  background: var(--theme-glass-modal);
+  backdrop-filter: var(--lv-glass-blur);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+}
+
+/* ===== Scrollbars (macOS overlay style) ===== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar-thumb) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--theme-scrollbar-thumb);
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-scrollbar-thumb-hover);
+}
+
+/* ===== Log line syntax ===== */
+.lv-log-bracket {
+  color: var(--color-bracket);
+}
+.lv-log-method {
+  color: var(--color-method);
+  font-weight: 600;
+}
+.lv-log-path {
+  color: var(--color-path);
+  font-weight: 500;
+}
+.lv-log-fqcn {
+  color: var(--color-fqcn);
+  font-weight: 500;
+}
+
+/* ===== Search marks ===== */
+mark.lv-search-mark {
+  background-color: var(--lv-search-mark-bg);
+  color: var(--color-hl-text);
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.lv-search-row-hit {
+  background-color: var(--lv-search-row-bg);
+}
+.lv-search-row-active {
+  background-color: var(--lv-search-active-bg);
+  box-shadow: inset 0 0 0 1.5px var(--lv-search-active-ring);
+  border-radius: var(--lv-radius-sm);
+}
+
+/* ===== Level filter chips (pill / segmented style) ===== */
+.lv-lvl-chip {
+  border-radius: var(--lv-radius);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lv-lvl-chip--off {
+  background: transparent;
+  color: var(--color-muted);
+  border-color: rgba(255, 255, 255, 0.05);
+  opacity: 0.55;
+}
+.lv-lvl-chip--on.lv-lvl-chip--ERROR {
+  background: rgba(255, 69, 58, 0.16);
+  color: var(--color-error);
+  border-color: rgba(255, 69, 58, 0.30);
+}
+.lv-lvl-chip--on.lv-lvl-chip--WARN {
+  background: rgba(255, 159, 10, 0.16);
+  color: var(--color-warning);
+  border-color: rgba(255, 159, 10, 0.30);
+}
+.lv-lvl-chip--on.lv-lvl-chip--INFO {
+  background: rgba(100, 210, 255, 0.16);
+  color: var(--color-info);
+  border-color: rgba(100, 210, 255, 0.30);
+}
+.lv-lvl-chip--on.lv-lvl-chip--DEBUG {
+  background: rgba(48, 209, 88, 0.16);
+  color: var(--color-debug);
+  border-color: rgba(48, 209, 88, 0.30);
+}
+.lv-lvl-chip--on.lv-lvl-chip--TRACE {
+  background: rgba(142, 142, 147, 0.16);
+  color: var(--color-trace);
+  border-color: rgba(142, 142, 147, 0.28);
+}
+.lv-lvl-chip--on.lv-lvl-chip--UNKNOWN {
+  background: rgba(152, 152, 157, 0.14);
+  color: var(--color-muted);
+  border-color: rgba(152, 152, 157, 0.25);
+}
+
+/* ===== Traffic light window controls ===== */
+.traffic-light {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.traffic-light--red {
+  background: #ff5f57;
+}
+.traffic-light--yellow {
+  background: #febc2e;
+}
+.traffic-light--green {
+  background: #28c840;
+}
+
+/* ===== macOS-style inputs ===== */
+.input-macos {
+  border-radius: var(--lv-radius);
+  border: 1px solid var(--color-input-border);
+  background: var(--color-input);
+  padding: 4px 10px;
+  font-size: var(--lv-font-ui);
+  color: var(--color-text);
+  outline: none;
+  color-scheme: dark;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+select.input-macos {
+  background: #2c2c2e;
+  color-scheme: dark;
+}
+select.input-macos option {
+  background: #2c2c2e;
+  color: #f5f5f7;
+}
+.input-macos::placeholder {
+  color: var(--color-muted);
+}
+.input-macos:focus {
+  border-color: rgba(10, 132, 255, 0.45);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.16);
+}
+
+/* ===== macOS-style buttons ===== */
+.btn-macos {
+  border-radius: var(--lv-radius);
+  background: var(--color-btn);
+  color: var(--color-btn-text);
+  padding: 3px 10px;
+  font-size: var(--lv-font-ui);
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+  white-space: nowrap;
+}
+.btn-macos:hover {
+  background: var(--color-btn-hover);
+}
+.btn-macos:active {
+  background: rgba(255, 255, 255, 0.16);
+}
+.btn-macos:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.btn-macos:disabled:hover {
+  background: var(--color-btn);
+}
+
+.btn-macos--primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+.btn-macos--primary:hover {
+  background: #409cff;
+}
+.btn-macos--primary:active {
+  background: #0070e0;
+}
+
+.btn-macos--danger {
+  background: rgba(255, 69, 58, 0.16);
+  color: var(--color-danger);
+}
+.btn-macos--danger:hover {
+  background: rgba(255, 69, 58, 0.28);
+}
+
+/* ===== Subtle divider ===== */
+.divider-macos {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+/* ===== Dynamic font-size utilities (driven by settings) ===== */
+.text-ui-xs {
+  font-size: calc(var(--lv-font-ui) - 2px);
+}
+.text-ui-sm {
+  font-size: calc(var(--lv-font-ui) - 1px);
+}
+.text-ui {
+  font-size: var(--lv-font-ui);
+}
+.text-ui-lg {
+  font-size: calc(var(--lv-font-ui) + 2px);
+}
+.text-ui-xl {
+  font-size: calc(var(--lv-font-ui) + 3px);
+}
+.text-mono {
+  font-size: var(--lv-font-mono);
+}
+.text-mono-sm {
+  font-size: calc(var(--lv-font-mono) - 1px);
+}
+.text-ui-2xl {
+  font-size: calc(var(--lv-font-ui) + 4px);
+}
