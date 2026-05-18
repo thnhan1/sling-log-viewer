@@ -44,6 +44,16 @@
   --color-danger: #ff453a;
 
   /* Log line syntax tokens */
+  --color-log-timestamp: #8e8e93;
+  --color-log-thread: #64d2ff;
+  --color-log-message: #f5f5f7;
+  --color-log-cause: #ff9f0a;
+  --color-log-key: #30d158;
+  --color-log-operator: #8e8e93;
+  --color-log-value: #64d2ff;
+  --color-log-string: #ffd60a;
+  --color-log-number: #bf5af2;
+  --color-log-exception: #ff453a;
   --color-bracket: #8e8e93;
   --color-method: #ffd60a;
   --color-path: #64d2ff;
@@ -137,6 +147,18 @@ body {
 }
 
 /* ===== Log line syntax ===== */
+.lv-log-timestamp {
+  color: var(--color-log-timestamp);
+}
+.lv-log-thread {
+  color: var(--color-log-thread);
+}
+.lv-log-message {
+  color: var(--color-log-message);
+}
+.lv-log-cause {
+  color: var(--color-log-cause);
+}
 .lv-log-bracket {
   color: var(--color-bracket);
 }
@@ -150,6 +172,26 @@ body {
 }
 .lv-log-fqcn {
   color: var(--color-fqcn);
+  font-weight: 500;
+}
+.lv-log-key {
+  color: var(--color-log-key);
+  font-weight: 500;
+}
+.lv-log-operator {
+  color: var(--color-log-operator);
+}
+.lv-log-value {
+  color: var(--color-log-value);
+}
+.lv-log-string {
+  color: var(--color-log-string);
+}
+.lv-log-number {
+  color: var(--color-log-number);
+}
+.lv-log-exception {
+  color: var(--color-log-exception);
   font-weight: 500;
 }
 
@@ -187,34 +229,34 @@ mark.lv-search-mark {
   opacity: 0.55;
 }
 .lv-lvl-chip--on.lv-lvl-chip--ERROR {
-  background: rgba(255, 69, 58, 0.16);
+  background: color-mix(in srgb, var(--color-error) 16%, transparent);
   color: var(--color-error);
-  border-color: rgba(255, 69, 58, 0.30);
+  border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
 }
 .lv-lvl-chip--on.lv-lvl-chip--WARN {
-  background: rgba(255, 159, 10, 0.16);
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
   color: var(--color-warning);
-  border-color: rgba(255, 159, 10, 0.30);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
 }
 .lv-lvl-chip--on.lv-lvl-chip--INFO {
-  background: rgba(100, 210, 255, 0.16);
+  background: color-mix(in srgb, var(--color-info) 16%, transparent);
   color: var(--color-info);
-  border-color: rgba(100, 210, 255, 0.30);
+  border-color: color-mix(in srgb, var(--color-info) 30%, transparent);
 }
 .lv-lvl-chip--on.lv-lvl-chip--DEBUG {
-  background: rgba(48, 209, 88, 0.16);
+  background: color-mix(in srgb, var(--color-debug) 16%, transparent);
   color: var(--color-debug);
-  border-color: rgba(48, 209, 88, 0.30);
+  border-color: color-mix(in srgb, var(--color-debug) 30%, transparent);
 }
 .lv-lvl-chip--on.lv-lvl-chip--TRACE {
-  background: rgba(142, 142, 147, 0.16);
+  background: color-mix(in srgb, var(--color-trace) 16%, transparent);
   color: var(--color-trace);
-  border-color: rgba(142, 142, 147, 0.28);
+  border-color: color-mix(in srgb, var(--color-trace) 28%, transparent);
 }
 .lv-lvl-chip--on.lv-lvl-chip--UNKNOWN {
-  background: rgba(152, 152, 157, 0.14);
+  background: color-mix(in srgb, var(--color-muted) 14%, transparent);
   color: var(--color-muted);
-  border-color: rgba(152, 152, 157, 0.25);
+  border-color: color-mix(in srgb, var(--color-muted) 25%, transparent);
 }
 
 /* ===== Traffic light window controls ===== */

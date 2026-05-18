@@ -58,15 +58,15 @@ export function LogLineRow({
           renderRichLogText(row.message, 'message')
         ) : (
           <>
-            {row.timestamp && <span className="text-muted">{row.timestamp} </span>}
+            {row.timestamp && <span className="lv-log-timestamp">{row.timestamp} </span>}
             <span className={LEVEL_CLASS[row.level]}>*{row.level}*</span>
             {row.thread && (
               <>
                 {threadNeedsBrackets ? (
                   <>
-                    <span className="text-muted"> [</span>
+                    <span className="lv-log-bracket"> [</span>
                     {renderRichLogText(row.thread, 'thread')}
-                    <span className="text-muted">]</span>
+                    <span className="lv-log-bracket">]</span>
                   </>
                 ) : (
                   <>
@@ -78,9 +78,9 @@ export function LogLineRow({
             )}
             {row.bundleOrClass && (
               <>
-                <span className="text-muted"> [</span>
+                <span className="lv-log-bracket"> [</span>
                 <span className="lv-log-fqcn">{row.bundleOrClass}</span>
-                <span className="text-muted">]</span>
+                <span className="lv-log-bracket">]</span>
               </>
             )}{' '}
             {renderRichLogText(row.message, 'message')}
