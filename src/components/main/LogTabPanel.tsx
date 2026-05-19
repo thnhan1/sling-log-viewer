@@ -155,6 +155,11 @@ export function LogTabPanel({
   }, [])
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null)
+  const setScrollContainer = useCallback((node: HTMLDivElement | null) => {
+    scrollRef.current = node
+    setScrollEl(node)
+  }, [])
   const [stickToBottom, setStickToBottom] = useState(true)
   const scrollToIndexRef = useRef<((index: number, align?: 'center' | 'end') => void) | null>(null)
 
@@ -342,12 +347,12 @@ export function LogTabPanel({
       />
 
       <div
-        ref={scrollRef}
+        ref={setScrollContainer}
         onScroll={onScroll}
         className="font-mono text-mono flex-1 overflow-auto bg-bg"
       >
         <VirtualLogLines
-          scrollEl={scrollRef.current}
+          scrollEl={scrollEl}
           selectedFile={file}
           displayLines={displayLines}
           filteredLines={filtered}

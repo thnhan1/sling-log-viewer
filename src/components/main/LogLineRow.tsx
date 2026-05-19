@@ -53,7 +53,7 @@ export function LogLineRow({
       </button>
 
       {/* Log line content */}
-      <div className="min-w-0 flex-1 whitespace-pre-wrap break-all leading-[20px] text-mono">
+      <div className="min-w-0 max-w-full flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-[20px] text-mono">
         {fallbackUnknown ? (
           renderRichLogText(row.message, 'message')
         ) : (

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ParsedLogLine } from '@shared/types'
 import type { LogBookmark } from '../../lib/bookmarks'
@@ -42,6 +42,32 @@ export function VirtualLogLines({
   })
 
   const items = virtualizer.getVirtualItems()
+
+  const measureVisibleRows = useCallback(() => {
+    if (!scrollEl) return
+    scrollEl.querySelectorAll<HTMLElement>('[data-index]').forEach((node) => {
+      virtualizer.measureElement(node)
+    })
+  }, [scrollEl, virtualizer])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(measureVisibleRows)
+    return () => window.cancelAnimationFrame(frame)
+  }, [displayLines, searchQ, selectedFile, measureVisibleRows])
+
+  useEffect(() => {
+    if (!scrollEl || typeof ResizeObserver === 'undefined') return
+    let frame = 0
+    const ro = new ResizeObserver(() => {
+      if (frame) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(measureVisibleRows)
+    })
+    ro.observe(scrollEl)
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      ro.disconnect()
+    }
+  }, [measureVisibleRows, scrollEl])
 
   useEffect(() => {
     if (!scrollEl || !selectedFile) {
