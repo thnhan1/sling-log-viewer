@@ -161,20 +161,33 @@ export function LogTabPanel({
     setScrollEl(node)
   }, [])
   const [stickToBottom, setStickToBottom] = useState(true)
+  const stickToBottomRef = useRef(stickToBottom)
+  stickToBottomRef.current = stickToBottom
+  const scrollingProgrammaticallyRef = useRef(false)
   const scrollToIndexRef = useRef<((index: number, align?: 'center' | 'end') => void) | null>(null)
 
   const scrollToDisplayIndex = useCallback(
     (idx: number, align: 'center' | 'end' = 'center') => {
       if (idx < 0) return
+      setStickToBottom(false)
+      scrollingProgrammaticallyRef.current = true
       if (scrollToIndexRef.current) {
         scrollToIndexRef.current(idx, align)
+        requestAnimationFrame(() => {
+          scrollingProgrammaticallyRef.current = false
+        })
         return
       }
       const container = scrollRef.current
-      if (!container) return
+      if (!container) {
+        scrollingProgrammaticallyRef.current = false
+        return
+      }
       const el = container.querySelector(`[data-log-index="${idx}"]`) as HTMLElement | null
-      if (!el) return
-      setStickToBottom(false)
+      if (!el) {
+        scrollingProgrammaticallyRef.current = false
+        return
+      }
       requestAnimationFrame(() => {
         const c = container.getBoundingClientRect()
         const r = el.getBoundingClientRect()
@@ -182,6 +195,9 @@ export function LogTabPanel({
         const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight)
         const nextTop = Math.min(maxScroll, Math.max(0, container.scrollTop + delta))
         container.scrollTo({ top: nextTop, behavior: 'smooth' })
+        requestAnimationFrame(() => {
+          scrollingProgrammaticallyRef.current = false
+        })
       })
     },
     [],
@@ -207,7 +223,11 @@ export function LogTabPanel({
 
   const jumpToTop = useCallback(() => {
     setStickToBottom(false)
+    scrollingProgrammaticallyRef.current = true
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    requestAnimationFrame(() => {
+      scrollingProgrammaticallyRef.current = false
+    })
   }, [])
 
   const jumpToRawLine = useCallback(
@@ -233,16 +253,17 @@ export function LogTabPanel({
 
   const jumpLatest = useCallback(() => {
     setStickToBottom(true)
-    const last = displayLines.length - 1
-    if (last >= 0 && scrollToIndexRef.current) {
-      scrollToIndexRef.current(last, 'end')
-      return
-    }
     const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [displayLines.length])
+    if (!el) return
+    scrollingProgrammaticallyRef.current = true
+    el.scrollTop = el.scrollHeight
+    requestAnimationFrame(() => {
+      scrollingProgrammaticallyRef.current = false
+    })
+  }, [])
 
   const onScroll = useCallback(() => {
+    if (scrollingProgrammaticallyRef.current) return
     const el = scrollRef.current
     if (!el) return
     const dist = el.scrollHeight - el.scrollTop - el.clientHeight
@@ -250,17 +271,15 @@ export function LogTabPanel({
   }, [])
 
   useEffect(() => {
-    if (!stickToBottom) return
-    const last = displayLines.length - 1
-    if (last < 0) return
-    if (scrollToIndexRef.current) {
-      scrollToIndexRef.current(last, 'end')
-      return
-    }
+    if (!stickToBottomRef.current) return
     const el = scrollRef.current
-    if (!el) return
+    if (!el || displayLines.length === 0) return
+    scrollingProgrammaticallyRef.current = true
     el.scrollTop = el.scrollHeight
-  }, [displayLines.length, stickToBottom])
+    requestAnimationFrame(() => {
+      scrollingProgrammaticallyRef.current = false
+    })
+  }, [displayLines.length])
 
   const hasSidebarFiltersEffect = filtered.length !== lines.length
 
