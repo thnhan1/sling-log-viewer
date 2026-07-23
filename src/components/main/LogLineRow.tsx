@@ -2,6 +2,7 @@ import type { ParsedLogLine } from '@shared/types'
 import { isBookmarked, type LogBookmark } from '../../lib/bookmarks'
 import { renderRichLogText } from '../../lib/logLineRichText'
 import { LEVEL_CLASS } from '../../ui/logViewerUi'
+import { IconStar, IconStarFill } from '../../ui/icons'
 
 export function LogLineRow({
   selectedFile,
@@ -49,7 +50,7 @@ export function LogLineRow({
         title={bm ? 'Remove bookmark' : 'Bookmark'}
         onClick={() => onToggleLineBookmark(selectedFile, row.raw)}
       >
-        {bm ? '★' : '☆'}
+        {bm ? <IconStarFill size={13} /> : <IconStar size={13} />}
       </button>
 
       {/* Log line content */}

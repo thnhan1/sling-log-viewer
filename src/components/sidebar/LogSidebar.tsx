@@ -2,13 +2,7 @@ import type { LogLevel } from '@shared/types'
 import type { SidebarSectionsOpen } from '../../lib/workspaceSettings'
 import type { LogFileRow } from '../../lib/api'
 import { formatBytes, LEVELS } from '../../ui/logViewerUi'
-
-interface RemotePrefs {
-  baseUrl: string
-  username: string
-  logPath: string
-  logFiles: string[]
-}
+import { IconChevronDown, IconChevronRight, IconDotFill, IconGear } from '../../ui/icons'
 
 export function LogSidebar({
   open,
@@ -31,16 +25,6 @@ export function LogSidebar({
   sourceMode,
   onSwitchSourceMode,
   remoteConfigured,
-  remotePrefs,
-  setRemotePrefs,
-  remotePassword,
-  setRemotePassword,
-  remoteLogFileInput,
-  setRemoteLogFileInput,
-  onConfigureRemote,
-  onAddRemoteLogFile,
-  onRemoveRemoteLogFile,
-  remoteConnecting,
 }: {
   open: boolean
   sidebarSec: SidebarSectionsOpen
@@ -62,16 +46,6 @@ export function LogSidebar({
   sourceMode: 'local' | 'remote'
   onSwitchSourceMode: (mode: 'local' | 'remote') => void
   remoteConfigured: boolean
-  remotePrefs: RemotePrefs
-  setRemotePrefs: React.Dispatch<React.SetStateAction<RemotePrefs>>
-  remotePassword: string
-  setRemotePassword: (v: string) => void
-  remoteLogFileInput: string
-  setRemoteLogFileInput: (v: string) => void
-  onConfigureRemote: (baseUrl: string, username: string, password: string, logPath: string, logFiles: string[]) => void
-  onAddRemoteLogFile: (name: string) => void
-  onRemoveRemoteLogFile: (name: string) => void
-  remoteConnecting: boolean
 }) {
   void onToggleSidebar
   return (
@@ -127,8 +101,8 @@ export function LogSidebar({
               onClick={() => toggleSidebarSec('folder')}
               aria-expanded={sidebarSec.folder}
             >
-              <span className="shrink-0 text-ui-xs text-muted select-none leading-none">
-                {sidebarSec.folder ? '▾' : '▸'}
+              <span className="shrink-0 text-muted">
+                {sidebarSec.folder ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
               </span>
               <span className="text-ui-sm font-semibold text-text select-none">
                 Log Folder
@@ -165,117 +139,16 @@ export function LogSidebar({
           </div>
         )}
 
-        {/* ── Remote mode: AEM Connection section ── */}
+        {/* ── Remote mode: connection status only ── */}
         {sourceMode === 'remote' && (
-          <div className="shrink-0 border-b border-[rgba(255,255,255,0.05)]">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-              onClick={() => toggleSidebarSec('folder')}
-              aria-expanded={sidebarSec.folder}
-            >
-              <span className="shrink-0 text-ui-xs text-muted select-none leading-none">
-                {sidebarSec.folder ? '▾' : '▸'}
+          <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-[rgba(255,255,255,0.05)]">
+            <span className="text-ui-sm font-semibold text-text select-none">Remote</span>
+            {remoteConfigured ? (
+              <span className="ml-auto flex items-center gap-1.5 text-ui-xs text-[#30d158]">
+                <IconDotFill size={7} /> connected
               </span>
-              <span className="text-ui-sm font-semibold text-text select-none">
-                AEM Connection
-              </span>
-              {remoteConfigured && (
-                <span className="ml-auto inline-block w-2 h-2 rounded-full bg-[#30d158]" title="Connected" />
-              )}
-            </button>
-            {sidebarSec.folder && (
-              <div className="px-3 pb-3 pt-0.5 space-y-2">
-                <input
-                  className="input-macos w-full"
-                  placeholder="AEM Base URL (e.g. https://aem-uat.example.com)"
-                  value={remotePrefs.baseUrl}
-                  onChange={(e) => setRemotePrefs((p) => ({ ...p, baseUrl: e.target.value }))}
-                />
-                <input
-                  className="input-macos w-full"
-                  placeholder="Username"
-                  value={remotePrefs.username}
-                  onChange={(e) => setRemotePrefs((p) => ({ ...p, username: e.target.value }))}
-                  autoComplete="off"
-                />
-                <input
-                  className="input-macos w-full"
-                  type="password"
-                  placeholder={remoteConfigured ? 'Password (saved on server)' : 'Password'}
-                  value={remotePassword}
-                  onChange={(e) => setRemotePassword(e.target.value)}
-                  autoComplete="off"
-                />
-                <input
-                  className="input-macos w-full"
-                  placeholder="Log path (e.g. logs/)"
-                  value={remotePrefs.logPath}
-                  onChange={(e) => setRemotePrefs((p) => ({ ...p, logPath: e.target.value }))}
-                />
-                {/* Log file list */}
-                <div className="text-ui-xs text-muted pt-1">Log files to track:</div>
-                {remotePrefs.logFiles.length > 0 && (
-                  <div className="max-h-[100px] overflow-auto rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.025)]">
-                    {remotePrefs.logFiles.map((f) => (
-                      <div
-                        key={f}
-                        className="flex items-center justify-between px-2 py-1 text-ui-xs text-text hover:bg-[rgba(255,255,255,0.04)]"
-                      >
-                        <span className="truncate">{f}</span>
-                        <button
-                          type="button"
-                          className="text-muted hover:text-error ml-1 shrink-0"
-                          onClick={() => onRemoveRemoteLogFile(f)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-1">
-                  <input
-                    className="input-macos flex-1"
-                    placeholder="e.g. error.log"
-                    value={remoteLogFileInput}
-                    onChange={(e) => setRemoteLogFileInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && onAddRemoteLogFile(remoteLogFileInput)}
-                  />
-                  <button
-                    type="button"
-                    className="btn-macos shrink-0"
-                    onClick={() => onAddRemoteLogFile(remoteLogFileInput)}
-                    title="Add log file"
-                  >
-                    +
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="btn-macos btn-macos--primary w-full"
-                  disabled={remoteConnecting || !remotePrefs.baseUrl || !remotePrefs.username}
-                  onClick={() =>
-                    onConfigureRemote(
-                      remotePrefs.baseUrl,
-                      remotePrefs.username,
-                      remotePassword,
-                      remotePrefs.logPath,
-                      remotePrefs.logFiles,
-                    )
-                  }
-                >
-                  {remoteConnecting ? 'Connecting…' : remoteConfigured ? 'Reconnect' : 'Connect'}
-                </button>
-                {configErr && <p className="text-ui-xs text-error">{configErr}</p>}
-                <p className="text-ui-xs leading-snug text-muted">
-                  Set <code className="rounded-md bg-[rgba(255,255,255,0.08)] px-1 text-ui-xs">AEM_UAT_URL</code>,{' '}
-                  <code className="rounded-md bg-[rgba(255,255,255,0.08)] px-1 text-ui-xs">AEM_UAT_USER</code>,{' '}
-                  <code className="rounded-md bg-[rgba(255,255,255,0.08)] px-1 text-ui-xs">AEM_UAT_PASS</code> in{' '}
-                  <code className="rounded-md bg-[rgba(255,255,255,0.08)] px-1 text-ui-xs">.env</code> for defaults.
-                </p>
-              </div>
+            ) : (
+              <span className="ml-auto text-ui-xs text-muted">not configured</span>
             )}
           </div>
         )}
@@ -385,10 +258,10 @@ export function LogSidebar({
         <div className="shrink-0 border-t border-[rgba(255,255,255,0.05)] px-3 py-2">
           <button
             type="button"
-            className="btn-macos w-full justify-center"
+            className="btn-macos flex items-center gap-2"
             onClick={onOpenSettings}
           >
-            Settings
+            <IconGear size={14} /> Settings
           </button>
         </div>
       </div>

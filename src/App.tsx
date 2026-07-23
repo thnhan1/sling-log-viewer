@@ -10,6 +10,7 @@ import {
 } from './lib/bookmarks'
 import {
   clearLogFile,
+  clearRemoteConfig,
   getDefaults,
   getFiles,
   getSourceMode,
@@ -29,6 +30,7 @@ import { ConfirmClearModal } from './components/modals/ConfirmClearModal'
 import { LogSidebar } from './components/sidebar/LogSidebar'
 import { LogViewerEmptyState } from './components/main/LogViewerEmptyState'
 import { LogTabPanel } from './components/main/LogTabPanel'
+import { IconSidebarCollapse, IconSidebarExpand, IconX } from './ui/icons'
 
 const LOG_ROOT_KEY = 'aem-log-viewer-log-root'
 const SIDEBAR_OPEN_KEY = 'aem-log-viewer-sidebar-open'
@@ -243,11 +245,41 @@ export default function App() {
     const f = fileName.trim()
     if (!f) return
     setRemotePrefs((prev) => {
-      const next = prev.logFiles.includes(f) ? prev.logFiles : [...prev.logFiles, f]
-      saveRemotePrefs({ ...prev, logFiles: next })
-      return { ...prev, logFiles: next }
+      if (prev.logFiles.includes(f)) return prev
+      const next = { ...prev, logFiles: [...prev.logFiles, f] }
+      saveRemotePrefs(next)
+      // Optimistic: update sidebar file list immediately
+      setFiles((files) => {
+        if (files.some((rf) => rf.name === f)) return files
+        return [...files, { name: f, size: 0, mtimeMs: Date.now() }]
+      })
+      // Sync to server if already connected
+      if (remoteConfigured) {
+        void postRemoteConfig({
+          baseUrl: prev.baseUrl,
+          username: prev.username,
+          password: '',
+          logPath: prev.logPath,
+          logFiles: next.logFiles,
+        })
+      }
+      return next
     })
     setRemoteLogFileInput('')
+  }, [remoteConfigured])
+
+  const disconnectRemote = useCallback(() => {
+    // Clear local state first (always, even if server call fails)
+    setRemoteConfigured(false)
+    setRemotePassword('')
+    setFiles([])
+    setSourceModeState('local')
+    setTabs([])
+    setActiveTabId(null)
+    saveRemotePrefs({ baseUrl: '', username: '', logPath: 'logs/', logFiles: [] })
+    setRemotePrefs({ baseUrl: '', username: '', logPath: 'logs/', logFiles: [] })
+    // Fire-and-forget server clear
+    void clearRemoteConfig()
   }, [])
 
   const removeRemoteLogFile = useCallback(
@@ -262,25 +294,27 @@ export default function App() {
         })
         return next
       })
-      // Remove from files list
+      // Remove from files list immediately
       setFiles((prev) => prev.filter((f) => f.name !== fileName))
-      // Update prefs
+      // Update prefs and sync to server
       setRemotePrefs((prev) => {
-        const next = { ...prev, logFiles: prev.logFiles.filter((f) => f !== fileName) }
+        const nextFiles = prev.logFiles.filter((f) => f !== fileName)
+        const next = { ...prev, logFiles: nextFiles }
         saveRemotePrefs(next)
+        // Sync to server if already connected (password reused on server)
+        if (remoteConfigured) {
+          void postRemoteConfig({
+            baseUrl: prev.baseUrl,
+            username: prev.username,
+            password: '',
+            logPath: prev.logPath,
+            logFiles: nextFiles,
+          })
+        }
         return next
       })
-      // Sync with server — re-submit remote config without this file
-      // Password is on server, so send empty string to reuse existing
-      void postRemoteConfig({
-        baseUrl: remotePrefs.baseUrl,
-        username: remotePrefs.username,
-        password: '', // server reuses stored password
-        logPath: remotePrefs.logPath,
-        logFiles: remotePrefs.logFiles.filter((f) => f !== fileName),
-      })
     },
-    [remotePrefs.baseUrl, remotePrefs.username, remotePrefs.logPath],
+    [remoteConfigured],
   )
 
   const bootstrapRef = useRef(false)
@@ -495,18 +529,6 @@ export default function App() {
         sourceMode={sourceMode}
         onSwitchSourceMode={(m) => void switchSourceMode(m)}
         remoteConfigured={remoteConfigured}
-        remotePrefs={remotePrefs}
-        setRemotePrefs={setRemotePrefs}
-        remotePassword={remotePassword}
-        setRemotePassword={setRemotePassword}
-        remoteLogFileInput={remoteLogFileInput}
-        setRemoteLogFileInput={setRemoteLogFileInput}
-        onConfigureRemote={(baseUrl, username, password, logPath, logFiles) =>
-          void configureRemote(baseUrl, username, password, logPath, logFiles)
-        }
-        onAddRemoteLogFile={addRemoteLogFile}
-        onRemoveRemoteLogFile={removeRemoteLogFile}
-        remoteConnecting={remoteConnecting}
       />
 
       <main className={`flex min-w-0 min-h-0 flex-1 flex-col transition-[margin] duration-250 ease-out ${sidebarOpen ? 'ml-[260px]' : ''}`}>
@@ -527,7 +549,9 @@ export default function App() {
             title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
             aria-expanded={sidebarOpen}
           >
-            <span className="text-ui-xs">{sidebarOpen ? '◀' : '▶'}</span>
+            <span className="text-ui-xs">
+              {sidebarOpen ? <IconSidebarCollapse size={14} /> : <IconSidebarExpand size={14} />}
+            </span>
           </button>
 
           {/* Tab strip */}
@@ -563,7 +587,7 @@ export default function App() {
                       }}
                       title="Close tab"
                     >
-                      ×
+                      <IconX size={11} />
                     </button>
                   </div>
                 )
@@ -594,7 +618,23 @@ export default function App() {
         )}
       </main>
 
-      <SettingsModal open={settingsOpen} ui={ui} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal
+        open={settingsOpen}
+        ui={ui}
+        onClose={() => setSettingsOpen(false)}
+        remotePrefs={remotePrefs}
+        setRemotePrefs={setRemotePrefs}
+        remotePassword={remotePassword}
+        setRemotePassword={setRemotePassword}
+        remoteLogFileInput={remoteLogFileInput}
+        setRemoteLogFileInput={setRemoteLogFileInput}
+        remoteConfigured={remoteConfigured}
+        remoteConnecting={remoteConnecting}
+        onConfigureRemote={configureRemote}
+        onAddRemoteLogFile={addRemoteLogFile}
+        onRemoveRemoteLogFile={removeRemoteLogFile}
+        onDisconnectRemote={() => void disconnectRemote()}
+      />
       <ConfirmClearModal
         open={confirmClearFile}
         selectedFile={activeFile}

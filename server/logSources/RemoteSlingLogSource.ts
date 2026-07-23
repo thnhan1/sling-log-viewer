@@ -12,21 +12,32 @@ export interface RemoteConfig {
   logFiles: string[]
 }
 
-/** Strip directory prefixes so only the filename remains. */
+/** Strip directory prefixes and traversal sequences so only the filename remains. */
 export function normalizeLogFileName(name: string): string {
   const trimmed = name.trim()
-  // Strip common path prefixes: logs/, /logs/, ../, ./, etc.
-  const cleaned = trimmed.replace(/^(?:.*\/)?(.*?)$/, '$1')
+  // Remove path traversal and strip all directory prefixes
+  const cleaned = trimmed
+    .replace(/\.\./g, '')
+    .replace(/[\\]/g, '/')
+    .replace(/^.*\//, '')
   return cleaned || trimmed
 }
 
-/** Resolve a bare filename to the full AEM log path for tailer.txt. */
+/** Resolve a bare filename to the full AEM log path for tailer.txt. Read-only. */
 function resolveLogPath(logPath: string, fileName: string): string {
-  const path = logPath.replace(/\/+$/, '') + '/' // ensure trailing slash
-  // If fileName already starts with the path, don't double-prefix
-  if (fileName.startsWith(path)) return fileName
-  if (fileName.startsWith('/')) return fileName // absolute path, use as-is
-  return path + fileName
+  // Sanitize: strip traversal and absolute path markers from logPath
+  const safePath = logPath
+    .replace(/\.\./g, '')
+    .replace(/\/+/g, '/')
+    .replace(/^\//, '')
+    .replace(/\/+$/, '')
+  // Filename is already normalized by caller — defensive double-check
+  const safeName = fileName.replace(/\.\./g, '').replace(/[\\]/g, '/').replace(/^.*\//, '')
+  // Reject if normalization changed the name (indicates attempted traversal)
+  if (safeName !== fileName) {
+    throw new Error(`Invalid file name: ${fileName}`)
+  }
+  return safePath + '/' + safeName
 }
 
 /**

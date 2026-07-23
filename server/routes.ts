@@ -93,7 +93,12 @@ export function mountApi(app: Express): void {
     const baseUrl = (body.baseUrl ?? '').trim()
     const username = (body.username ?? '').trim()
     const password = (body.password ?? '').trim()
-    const logPath = (body.logPath ?? '').trim() || 'logs/'
+    // Sanitize logPath — strip traversal sequences
+    const logPath = ((body.logPath ?? '').trim() || 'logs/')
+      .replace(/\.\./g, '')
+      .replace(/\/+/g, '/')
+      .replace(/^\//, '')
+    const safeLogPath = logPath ? logPath.replace(/\/+$/, '') + '/' : 'logs/'
     // Normalize: strip path prefixes so only bare filenames are stored
     const logFiles = Array.isArray(body.logFiles)
       ? [...new Set(body.logFiles.map((f) => normalizeLogFileName(f)).filter(Boolean))]
@@ -121,7 +126,7 @@ export function mountApi(app: Express): void {
       return
     }
 
-    const config: RemoteConfig = { baseUrl, username, password: effectivePassword, logPath, logFiles }
+    const config: RemoteConfig = { baseUrl, username, password: effectivePassword, logPath: safeLogPath, logFiles }
     updateRemoteConfig(config)
     setSourceMode('remote')
 
@@ -133,6 +138,13 @@ export function mountApi(app: Express): void {
       logFiles,
       hasPassword: true,
     })
+  })
+
+  // ── Clear remote config ──
+  app.post('/api/remote-config/clear', (_req: Request, res: Response) => {
+    updateRemoteConfig({ baseUrl: '', username: '', password: '', logPath: 'logs/', logFiles: [] })
+    setSourceMode('local')
+    res.json({ ok: true })
   })
 
   // ── Local config (existing) ──
@@ -242,6 +254,11 @@ export function mountApi(app: Express): void {
 
   // ── Clear log ──
   app.post('/api/log/clear', async (req: Request, res: Response) => {
+    // Block clear for remote sources — read-only access only
+    if (getSourceMode() === 'remote') {
+      sendError(res, 403, 'Cannot clear log files on remote AEM server')
+      return
+    }
     const file = String((req.body as { file?: string })?.file ?? '')
     if (!file || file.includes('..') || path.isAbsolute(file)) {
       sendError(res, 400, 'Invalid file')

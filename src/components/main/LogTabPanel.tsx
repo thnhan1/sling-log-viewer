@@ -10,6 +10,7 @@ import { LogFilterBar } from './LogFilterBar'
 import { VirtualLogLines } from './VirtualLogLines'
 import { StatusBar } from './StatusBar'
 import { formatBytes } from '../../ui/logViewerUi'
+import { IconGear, IconSync, IconTrash } from '../../ui/icons'
 
 function filterLines(rows: ParsedLogLine[], levelsOff: Set<LogLevel>): ParsedLogLine[] {
   return rows.filter((row) => !levelsOff.has(row.level))
@@ -342,24 +343,24 @@ export function LogTabPanel({
             </button>
           )}
           <button type="button" className={btnCls} onClick={clearViewOnly} title="Clear view">
-            Clear view
+            Clear
           </button>
           {sourceMode !== 'remote' && (
             <button
               type="button"
-              className={`${btnCls} btn-macos--danger`}
+              className={`${btnCls} btn-macos--danger flex items-center gap-1`}
               onClick={onRequestClearFile}
               title="Clear file on disk"
             >
-              Clear file
+              <IconTrash size={12} /> Clear file
             </button>
           )}
           <button type="button" className={btnCls} onClick={() => void reloadTail()} title="Refresh">
-            Refresh
+            <IconSync size={12} />
           </button>
           <span className="divider-macos" />
           <button type="button" className={btnCls} onClick={onOpenSettings} title="Settings">
-            ⚙
+            <IconGear size={13} />
           </button>
         </div>
       </header>

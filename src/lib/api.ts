@@ -72,6 +72,13 @@ export async function postRemoteConfig(config: {
   return r.json()
 }
 
+// ── Clear remote config ──
+
+export async function clearRemoteConfig(): Promise<{ ok: boolean; error?: string }> {
+  const r = await fetch('/api/remote-config/clear', { method: 'POST' })
+  return r.json()
+}
+
 // ── File operations (unchanged — reused for both modes) ──
 
 export async function postConfig(rootPath: string): Promise<{ ok: boolean; rootPath?: string; error?: string }> {

@@ -1,5 +1,6 @@
 import type { LogBookmark } from '../../lib/bookmarks'
 import { DateTimeInput } from './DateTimeInput'
+import { IconArrowUp, IconArrowDown, IconX, IconBookmark } from '../../ui/icons'
 
 export function LogFilterBar({
   viewQuickFilter,
@@ -77,7 +78,7 @@ export function LogFilterBar({
             onClick={onEnterSearchPrev}
             title="Previous match (Shift+Enter)"
           >
-            ◂
+            <IconArrowUp size={13} />
           </button>
           <button
             type="button"
@@ -86,7 +87,7 @@ export function LogFilterBar({
             onClick={onEnterSearchNext}
             title="Next match (Enter)"
           >
-            ▸
+            <IconArrowDown size={13} />
           </button>
           {searchQ && (
             <span className="inline-flex items-center gap-1 text-ui-sm tabular-nums text-muted ml-1">
@@ -143,8 +144,9 @@ export function LogFilterBar({
         <button type="button" className="btn-macos text-ui-sm" onClick={onJumpToTop} title="Scroll to top">
           Top
         </button>
-        <button type="button" className="btn-macos text-ui-sm" onClick={onToggleBookmarksOpen} title="Toggle bookmarks">
-          {fileBookmarks.length > 0 ? `Bookmarks (${fileBookmarks.length})` : 'Bookmarks'}
+        <button type="button" className="btn-macos text-ui-sm flex items-center gap-1" onClick={onToggleBookmarksOpen} title="Toggle bookmarks">
+          <IconBookmark size={12} />
+          {fileBookmarks.length > 0 ? `${fileBookmarks.length}` : ''}
         </button>
       </div>
 
@@ -173,7 +175,7 @@ export function LogFilterBar({
                     onClick={() => onRemoveBookmark(b.id)}
                     aria-label="Remove bookmark"
                   >
-                    ×
+                    <IconX size={12} />
                   </button>
                 </li>
               ))}
