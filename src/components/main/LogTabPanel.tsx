@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { LogLevel, ParsedLogLine } from '@shared/types'
 import {
   bookmarksForFile,
@@ -28,16 +28,18 @@ export function LogTabPanel({
   onRemoveBookmark,
   onRequestClearFile,
   onOpenSettings,
+  sourceMode,
 }: {
   file: string
   active: boolean
   refreshKey: number
   levelsOff: Set<LogLevel>
   bookmarks: LogBookmark[]
-  onToggleLineBookmark: (raw: string) => void
+  onToggleLineBookmark: (fileName: string, raw: string) => void
   onRemoveBookmark: (id: string) => void
   onRequestClearFile: () => void
   onOpenSettings: () => void
+  sourceMode?: 'local' | 'remote'
 }) {
   const { lines, truncated, error, fileSize, reloadTail, clearViewOnly } = useLogStream(file)
 
@@ -154,7 +156,7 @@ export function LogTabPanel({
     })
   }, [])
 
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null)
   const setScrollContainer = useCallback((node: HTMLDivElement | null) => {
     scrollRef.current = node
@@ -251,16 +253,63 @@ export function LogTabPanel({
     [displayLines, filtered, scrollToDisplayIndex],
   )
 
-  const jumpLatest = useCallback(() => {
-    setStickToBottom(true)
+  const scrollToBottomNow = useCallback(() => {
+    // Prefer virtualizer's scrollToIndex for accuracy (accounts for measured heights).
+    // Falls back to direct scrollTop if virtualizer hasn't registered yet.
+    if (scrollToIndexRef.current) {
+      const lastIdx = displayLines.length - 1
+      if (lastIdx >= 0) {
+        scrollToIndexRef.current(lastIdx, 'end')
+        return
+      }
+    }
     const el = scrollRef.current
     if (!el) return
-    scrollingProgrammaticallyRef.current = true
     el.scrollTop = el.scrollHeight
+  }, [displayLines.length])
+
+  // Phase 1: scroll synchronously before paint (useLayoutEffect)
+  const prevLenRef = useRef(displayLines.length)
+  useLayoutEffect(() => {
+    if (!stickToBottomRef.current) return
+    if (displayLines.length === 0) return
+    scrollingProgrammaticallyRef.current = true
+    scrollToBottomNow()
+    // Mark that we need a phase-2 correction after measurements settle
+    prevLenRef.current = displayLines.length
+  }, [displayLines.length, scrollToBottomNow])
+
+  // Phase 2: re-scroll after virtualizer measurements settle (async height changes)
+  useEffect(() => {
+    if (!stickToBottomRef.current) return
+    if (displayLines.length === 0) return
+    let cancelled = false
+    // Wait for virtualizer ResizeObserver → measureElement → re-render (if any)
+    const frame = requestAnimationFrame(() => {
+      if (cancelled || !stickToBottomRef.current) return
+      setTimeout(() => {
+        if (cancelled || !stickToBottomRef.current) return
+        scrollingProgrammaticallyRef.current = true
+        scrollToBottomNow()
+        requestAnimationFrame(() => {
+          scrollingProgrammaticallyRef.current = false
+        })
+      }, 50)
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(frame)
+    }
+  }, [displayLines.length, scrollToBottomNow])
+
+  const jumpLatest = useCallback(() => {
+    setStickToBottom(true)
+    scrollingProgrammaticallyRef.current = true
+    scrollToBottomNow()
     requestAnimationFrame(() => {
       scrollingProgrammaticallyRef.current = false
     })
-  }, [])
+  }, [scrollToBottomNow])
 
   const onScroll = useCallback(() => {
     if (scrollingProgrammaticallyRef.current) return
@@ -269,17 +318,6 @@ export function LogTabPanel({
     const dist = el.scrollHeight - el.scrollTop - el.clientHeight
     setStickToBottom(dist < 64)
   }, [])
-
-  useEffect(() => {
-    if (!stickToBottomRef.current) return
-    const el = scrollRef.current
-    if (!el || displayLines.length === 0) return
-    scrollingProgrammaticallyRef.current = true
-    el.scrollTop = el.scrollHeight
-    requestAnimationFrame(() => {
-      scrollingProgrammaticallyRef.current = false
-    })
-  }, [displayLines.length])
 
   const hasSidebarFiltersEffect = filtered.length !== lines.length
 
@@ -306,14 +344,16 @@ export function LogTabPanel({
           <button type="button" className={btnCls} onClick={clearViewOnly} title="Clear view">
             Clear view
           </button>
-          <button
-            type="button"
-            className={`${btnCls} btn-macos--danger`}
-            onClick={onRequestClearFile}
-            title="Clear file on disk"
-          >
-            Clear file
-          </button>
+          {sourceMode !== 'remote' && (
+            <button
+              type="button"
+              className={`${btnCls} btn-macos--danger`}
+              onClick={onRequestClearFile}
+              title="Clear file on disk"
+            >
+              Clear file
+            </button>
+          )}
           <button type="button" className={btnCls} onClick={() => void reloadTail()} title="Refresh">
             Refresh
           </button>

@@ -1,7 +1,78 @@
-export async function getDefaults(): Promise<{ ok: boolean; envLogRoot?: string | null; error?: string }> {
+export async function getDefaults(): Promise<{
+  ok: boolean
+  envLogRoot?: string | null
+  hasRemoteEnv?: boolean
+  envAemUrl?: string | null
+  envAemUser?: string | null
+  envAemLogFiles?: string[]
+  error?: string
+}> {
   const r = await fetch('/api/defaults')
-  return r.json() as Promise<{ ok: boolean; envLogRoot?: string | null; error?: string }>
+  return r.json() as Promise<{
+    ok: boolean
+    envLogRoot?: string | null
+    hasRemoteEnv?: boolean
+    envAemUrl?: string | null
+    envAemUser?: string | null
+    envAemLogFiles?: string[]
+    error?: string
+  }>
 }
+
+// ── Source mode ──
+
+export async function getSourceMode(): Promise<{
+  ok: boolean
+  mode: 'local' | 'remote'
+  configured: boolean
+  localRootPath?: string | null
+  remoteConfig?: {
+    baseUrl: string
+    username: string
+    logPath: string
+    logFiles: string[]
+    hasPassword: boolean
+  }
+}> {
+  const r = await fetch('/api/source-mode')
+  return r.json()
+}
+
+export async function setSourceModeApi(mode: 'local' | 'remote'): Promise<{ ok: boolean; error?: string }> {
+  const r = await fetch('/api/source-mode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode }),
+  })
+  return r.json()
+}
+
+// ── Remote config ──
+
+export async function postRemoteConfig(config: {
+  baseUrl: string
+  username: string
+  password: string
+  logPath?: string
+  logFiles: string[]
+}): Promise<{
+  ok: boolean
+  baseUrl?: string
+  username?: string
+  logPath?: string
+  logFiles?: string[]
+  hasPassword?: boolean
+  error?: string
+}> {
+  const r = await fetch('/api/remote-config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  })
+  return r.json()
+}
+
+// ── File operations (unchanged — reused for both modes) ──
 
 export async function postConfig(rootPath: string): Promise<{ ok: boolean; rootPath?: string; error?: string }> {
   const r = await fetch('/api/config', {

@@ -28,7 +28,7 @@ export function VirtualLogLines({
   searchMatchLineIndices: number[]
   searchMatchActive: number
   bookmarks: LogBookmark[]
-  onToggleLineBookmark: (raw: string) => void
+  onToggleLineBookmark: (fileName: string, raw: string) => void
   onScrollToIndexReady: (fn: ((index: number, align?: 'center' | 'end') => void) | null) => void
 }) {
   void lineIndexByRow
@@ -75,7 +75,7 @@ export function VirtualLogLines({
       return
     }
     onScrollToIndexReady((index, align = 'center') => {
-      virtualizer.scrollToIndex(index, { align, behavior: 'smooth' })
+      virtualizer.scrollToIndex(index, { align, behavior: 'auto' })
     })
     return () => onScrollToIndexReady(null)
   }, [onScrollToIndexReady, scrollEl, selectedFile, virtualizer])

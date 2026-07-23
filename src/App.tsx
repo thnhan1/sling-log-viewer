@@ -8,7 +8,16 @@ import {
   removeBookmark,
   saveBookmarks,
 } from './lib/bookmarks'
-import { clearLogFile, getDefaults, getFiles, postConfig, type LogFileRow } from './lib/api'
+import {
+  clearLogFile,
+  getDefaults,
+  getFiles,
+  getSourceMode,
+  postConfig,
+  postRemoteConfig,
+  setSourceModeApi,
+  type LogFileRow,
+} from './lib/api'
 import { useUiSettings } from './hooks/useUiSettings'
 import {
   readWorkspace,
@@ -23,6 +32,32 @@ import { LogTabPanel } from './components/main/LogTabPanel'
 
 const LOG_ROOT_KEY = 'aem-log-viewer-log-root'
 const SIDEBAR_OPEN_KEY = 'aem-log-viewer-sidebar-open'
+const REMOTE_PREFS_KEY = 'aem-log-viewer-remote-prefs'
+
+interface RemotePrefs {
+  baseUrl: string
+  username: string
+  logPath: string
+  logFiles: string[]
+}
+
+function readRemotePrefs(): RemotePrefs {
+  try {
+    const raw = localStorage.getItem(REMOTE_PREFS_KEY)
+    if (!raw) return { baseUrl: '', username: '', logPath: 'logs/', logFiles: [] }
+    return JSON.parse(raw) as RemotePrefs
+  } catch {
+    return { baseUrl: '', username: '', logPath: 'logs/', logFiles: [] }
+  }
+}
+
+function saveRemotePrefs(p: RemotePrefs): void {
+  try {
+    localStorage.setItem(REMOTE_PREFS_KEY, JSON.stringify(p))
+  } catch {
+    /* ignore */
+  }
+}
 
 function readSidebarOpen(): boolean {
   try {
@@ -41,6 +76,14 @@ export default function App() {
   const [configErr, setConfigErr] = useState<string | null>(null)
   const [files, setFiles] = useState<LogFileRow[]>([])
   const [fileSearch, setFileSearch] = useState('')
+
+  // Source mode & remote config
+  const [sourceMode, setSourceModeState] = useState<'local' | 'remote'>('local')
+  const [remoteConfigured, setRemoteConfigured] = useState(false)
+  const [remotePrefs, setRemotePrefs] = useState<RemotePrefs>(readRemotePrefs)
+  const [remotePassword, setRemotePassword] = useState('')
+  const [remoteLogFileInput, setRemoteLogFileInput] = useState('')
+  const [remoteConnecting, setRemoteConnecting] = useState(false)
 
   // Multi-tab state
   const [tabs, setTabs] = useState<{ id: string; file: string }[]>([])
@@ -101,16 +144,15 @@ export default function App() {
   }, [])
 
   const toggleLineBookmark = useCallback(
-    (raw: string) => {
-      if (!activeFile) return
+    (fileName: string, raw: string) => {
       persistBookmarks((prev) => {
-        if (isBookmarked(prev, activeFile, raw)) {
-          return prev.filter((b) => !(b.fileName === activeFile && b.raw === raw))
+        if (isBookmarked(prev, fileName, raw)) {
+          return prev.filter((b) => !(b.fileName === fileName && b.raw === raw))
         }
-        return addBookmark(prev, activeFile, raw)
+        return addBookmark(prev, fileName, raw)
       })
     },
-    [activeFile, persistBookmarks],
+    [persistBookmarks],
   )
 
   const removeBm = useCallback(
@@ -152,6 +194,95 @@ export default function App() {
     return true
   }, [])
 
+  const switchSourceMode = useCallback(async (mode: 'local' | 'remote') => {
+    const res = await setSourceModeApi(mode)
+    if (!res.ok) {
+      setConfigErr(res.error ?? 'Failed to switch mode')
+      return
+    }
+    setSourceModeState(mode)
+    setConfigErr(null)
+    // Refresh file list for the new mode
+    const list = await getFiles()
+    if (list.ok) setFiles(list.files ?? [])
+    else setFiles([])
+  }, [])
+
+  const configureRemote = useCallback(async (baseUrl: string, username: string, password: string, logPath: string, logFiles: string[]) => {
+    setConfigErr(null)
+    setRemoteConnecting(true)
+    try {
+      // Strip path prefixes so only bare filenames are sent
+      const normalizedFiles = logFiles.map((f) => {
+        const parts = f.replace(/\\/g, '/').split('/')
+        return parts[parts.length - 1]
+      }).filter(Boolean)
+      const res = await postRemoteConfig({ baseUrl, username, password, logPath, logFiles: normalizedFiles })
+      if (!res.ok) {
+        setConfigErr(res.error ?? 'Failed to connect')
+        return false
+      }
+      // Save prefs (without password)
+      const prefs: RemotePrefs = { baseUrl, username, logPath, logFiles: normalizedFiles }
+      setRemotePrefs(prefs)
+      saveRemotePrefs(prefs)
+      setSourceModeState('remote')
+      setRemoteConfigured(true)
+      setRemotePassword('') // clear password from memory
+      // Refresh file list
+      const list = await getFiles()
+      if (list.ok) setFiles(list.files ?? [])
+      else setFiles([])
+      return true
+    } finally {
+      setRemoteConnecting(false)
+    }
+  }, [])
+
+  const addRemoteLogFile = useCallback((fileName: string) => {
+    const f = fileName.trim()
+    if (!f) return
+    setRemotePrefs((prev) => {
+      const next = prev.logFiles.includes(f) ? prev.logFiles : [...prev.logFiles, f]
+      saveRemotePrefs({ ...prev, logFiles: next })
+      return { ...prev, logFiles: next }
+    })
+    setRemoteLogFileInput('')
+  }, [])
+
+  const removeRemoteLogFile = useCallback(
+    (fileName: string) => {
+      // Close any open tabs for this file
+      setTabs((t) => {
+        const next = t.filter((tab) => tab.id !== fileName)
+        setActiveTabId((active) => {
+          if (active !== fileName) return active
+          if (next.length === 0) return null
+          return next[0].id
+        })
+        return next
+      })
+      // Remove from files list
+      setFiles((prev) => prev.filter((f) => f.name !== fileName))
+      // Update prefs
+      setRemotePrefs((prev) => {
+        const next = { ...prev, logFiles: prev.logFiles.filter((f) => f !== fileName) }
+        saveRemotePrefs(next)
+        return next
+      })
+      // Sync with server — re-submit remote config without this file
+      // Password is on server, so send empty string to reuse existing
+      void postRemoteConfig({
+        baseUrl: remotePrefs.baseUrl,
+        username: remotePrefs.username,
+        password: '', // server reuses stored password
+        logPath: remotePrefs.logPath,
+        logFiles: remotePrefs.logFiles.filter((f) => f !== fileName),
+      })
+    },
+    [remotePrefs.baseUrl, remotePrefs.username, remotePrefs.logPath],
+  )
+
   const bootstrapRef = useRef(false)
   useEffect(() => {
     if (bootstrapRef.current) return
@@ -160,15 +291,65 @@ export default function App() {
     ;(async () => {
       const defaults = await getDefaults()
       if (!alive) return
-      let saved = ''
-      try {
-        saved = localStorage.getItem(LOG_ROOT_KEY) ?? ''
-      } catch {
-        /* ignore */
+
+      // Restore remote prefs from localStorage if not already set
+      if (!remotePrefs.baseUrl && defaults.ok && defaults.envAemUrl) {
+        const envFiles = (defaults.envAemLogFiles ?? []).map((f) => f.split('/').pop() || f)
+        const prefs: RemotePrefs = {
+          baseUrl: defaults.envAemUrl.trim(),
+          username: defaults.envAemUser?.trim() ?? '',
+          logPath: 'logs/',
+          logFiles: envFiles.length > 0 ? envFiles : [],
+        }
+        setRemotePrefs(prefs)
+        saveRemotePrefs(prefs)
       }
-      const envPath = defaults.ok && defaults.envLogRoot ? defaults.envLogRoot.trim() : ''
-      const initial = saved.trim() || envPath
-      if (initial) await configureRoot(initial)
+
+      // Check current server state
+      try {
+        const modeRes = await getSourceMode()
+        if (alive && modeRes.ok) {
+          setSourceModeState(modeRes.mode)
+          setRemoteConfigured(modeRes.configured && modeRes.mode === 'remote')
+          if (modeRes.remoteConfig) {
+            setRemotePrefs({
+              baseUrl: modeRes.remoteConfig.baseUrl,
+              username: modeRes.remoteConfig.username,
+              logPath: modeRes.remoteConfig.logPath || 'logs/',
+              logFiles: modeRes.remoteConfig.logFiles,
+            })
+          }
+          if (modeRes.localRootPath) {
+            setRootPath(modeRes.localRootPath)
+            setPathInput(modeRes.localRootPath)
+          }
+          // Fetch files for current mode
+          if (modeRes.configured) {
+            const list = await getFiles()
+            if (alive && list.ok) setFiles(list.files ?? [])
+          }
+        }
+      } catch {
+        /* server may not be ready yet */
+      }
+
+      // Fallback: if no server config but we have local env/saved path, configure local
+      if (!remoteConfigured) {
+        let saved = ''
+        try {
+          saved = localStorage.getItem(LOG_ROOT_KEY) ?? ''
+        } catch {
+          /* ignore */
+        }
+        const envPath = defaults.ok && defaults.envLogRoot ? defaults.envLogRoot.trim() : ''
+        const initial = saved.trim() || envPath
+        if (initial) {
+          const ok = await configureRoot(initial)
+          if (alive && ok) {
+            setSourceModeState('local')
+          }
+        }
+      }
     })()
     return () => {
       alive = false
@@ -311,6 +492,21 @@ export default function App() {
         levelsOff={levelsOff}
         onToggleLevel={toggleLevel}
         onOpenSettings={() => setSettingsOpen(true)}
+        sourceMode={sourceMode}
+        onSwitchSourceMode={(m) => void switchSourceMode(m)}
+        remoteConfigured={remoteConfigured}
+        remotePrefs={remotePrefs}
+        setRemotePrefs={setRemotePrefs}
+        remotePassword={remotePassword}
+        setRemotePassword={setRemotePassword}
+        remoteLogFileInput={remoteLogFileInput}
+        setRemoteLogFileInput={setRemoteLogFileInput}
+        onConfigureRemote={(baseUrl, username, password, logPath, logFiles) =>
+          void configureRemote(baseUrl, username, password, logPath, logFiles)
+        }
+        onAddRemoteLogFile={addRemoteLogFile}
+        onRemoveRemoteLogFile={removeRemoteLogFile}
+        remoteConnecting={remoteConnecting}
       />
 
       <main className={`flex min-w-0 min-h-0 flex-1 flex-col transition-[margin] duration-250 ease-out ${sidebarOpen ? 'ml-[260px]' : ''}`}>
@@ -392,6 +588,7 @@ export default function App() {
               onRemoveBookmark={removeBm}
               onRequestClearFile={() => setConfirmClearFile(true)}
               onOpenSettings={() => setSettingsOpen(true)}
+              sourceMode={sourceMode}
             />
           ))
         )}

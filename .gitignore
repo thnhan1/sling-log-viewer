@@ -2,3 +2,11 @@ node_modules
 dist
 .env
 *.local
+AGENTS.md
+.remember
+.claude
+.vscode
+.copilot
+CLAUDE.md
+log-run.bat.txt
+

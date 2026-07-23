@@ -1,8 +1,7 @@
 import type { Server as HttpServer } from 'node:http'
-import fs from 'node:fs/promises'
 import path from 'node:path'
 import { WebSocketServer, type RawData, type WebSocket } from 'ws'
-import { assertUnderRoot, getRoot, readSince, readTailAligned, statLogFile } from './logStore.js'
+import { getLogSource, getSourceMode, getLocalRootPath, getRemoteConfig } from './logSources/LogSourceFactory.js'
 
 type ClientMsg = { type: 'subscribe'; file: string } | { type: 'ping' }
 
@@ -30,13 +29,11 @@ function parseClientMessage(raw: string): ClientMsg | null {
   }
 }
 
-async function fileExists(fp: string): Promise<boolean> {
-  try {
-    const st = await fs.stat(fp)
-    return st.isFile()
-  } catch {
-    return false
-  }
+function isSourceConfigured(): boolean {
+  const mode = getSourceMode()
+  if (mode === 'local') return Boolean(getLocalRootPath())
+  if (mode === 'remote') return Boolean(getRemoteConfig())
+  return false
 }
 
 export function mountWs(httpServer: HttpServer): void {
@@ -44,75 +41,18 @@ export function mountWs(httpServer: HttpServer): void {
 
   wss.on('connection', (ws: WebSocket) => {
     let subscribedFile: string | null = null
-    let subscribedAbs: string | null = null
-    let sinceByte = 0
-    let watchTimer: NodeJS.Timeout | null = null
-    let pollTimer: NodeJS.Timeout | null = null
-    let watcher: import('node:fs').FSWatcher | null = null
+    let unwatchFn: (() => void) | null = null
+    let transientErrorTimer: NodeJS.Timeout | null = null
 
     const cleanupWatch = () => {
-      if (watchTimer) {
-        clearTimeout(watchTimer)
-        watchTimer = null
+      if (unwatchFn) {
+        unwatchFn()
+        unwatchFn = null
       }
-      if (pollTimer) {
-        clearInterval(pollTimer)
-        pollTimer = null
+      if (transientErrorTimer) {
+        clearTimeout(transientErrorTimer)
+        transientErrorTimer = null
       }
-      if (watcher) {
-        watcher.close()
-        watcher = null
-      }
-    }
-
-    const scheduleRead = (reason: 'change' | 'rename') => {
-      if (!subscribedAbs || !subscribedFile) return
-      if (watchTimer) clearTimeout(watchTimer)
-      watchTimer = setTimeout(async () => {
-        watchTimer = null
-        const abs = subscribedAbs
-        const file = subscribedFile
-        if (!abs || !file) return
-
-        const exists = await fileExists(abs)
-        if (!exists) {
-          safeSend(ws, { type: 'rotated', file, reason: 'renamed' })
-          // keep watching; some loggers recreate file soon
-          sinceByte = 0
-          return
-        }
-
-        const meta = await statLogFile(abs)
-        if (meta.size < sinceByte) {
-          safeSend(ws, { type: 'rotated', file, reason: reason === 'rename' ? 'renamed' : 'truncated' })
-          const tail = await readTailAligned(abs)
-          sinceByte = tail.toByte
-          safeSend(ws, {
-            type: 'tail',
-            file,
-            chunk: tail.chunk,
-            toByte: tail.toByte,
-            fileSize: tail.fileSize,
-            truncated: tail.truncated,
-          })
-          return
-        }
-
-        if (meta.size === sinceByte) return
-
-        const r = await readSince(abs, sinceByte)
-        sinceByte = r.toByte
-        if (r.chunk) {
-          safeSend(ws, {
-            type: 'append',
-            file,
-            chunk: r.chunk,
-            fromByte: r.fromByte,
-            toByte: r.toByte,
-            fileSize: r.fileSize,
-          })
-        }
-      }, 60)
     }
 
     ws.on('message', async (data: RawData) => {
@@ -122,14 +62,20 @@ export function mountWs(httpServer: HttpServer): void {
         safeSend(ws, { type: 'error', message: 'Invalid message' })
         return
       }
+
       if (msg.type === 'ping') {
         safeSend(ws, { type: 'pong' })
         return
       }
 
-      const root = getRoot()
-      if (!root) {
-        safeSend(ws, { type: 'error', message: 'Configure root path first' })
+      // Validate source is configured
+      if (!isSourceConfigured()) {
+        safeSend(ws, {
+          type: 'error',
+          message: getSourceMode() === 'remote'
+            ? 'Configure AEM remote connection first'
+            : 'Configure root path first',
+        })
         return
       }
 
@@ -139,58 +85,88 @@ export function mountWs(httpServer: HttpServer): void {
         return
       }
 
+      // Clean up previous subscription
       cleanupWatch()
       subscribedFile = file
-      try {
-        subscribedAbs = assertUnderRoot(root, file)
-      } catch (e) {
-        subscribedAbs = null
-        safeSend(ws, { type: 'error', message: e instanceof Error ? e.message : 'Invalid file' })
-        return
-      }
 
-      // initial tail
       try {
-        const abs = subscribedAbs
-        if (!abs) {
-          safeSend(ws, { type: 'error', message: 'Invalid file' })
+        const source = getLogSource()
+
+        // Initial tail read
+        let initialTail: { chunk: string; toByte: number; fileSize: number; truncated: boolean }
+        try {
+          const tail = await source.readTail(file)
+          initialTail = tail
+        } catch (e) {
+          safeSend(ws, {
+            type: 'error',
+            message: e instanceof Error ? e.message : 'Failed to read log',
+          })
           return
         }
-        const tail = await readTailAligned(abs)
-        sinceByte = tail.toByte
+
         safeSend(ws, { type: 'subscribed', file })
         safeSend(ws, {
           type: 'tail',
           file,
-          chunk: tail.chunk,
-          toByte: tail.toByte,
-          fileSize: tail.fileSize,
-          truncated: tail.truncated,
+          chunk: initialTail.chunk,
+          toByte: initialTail.toByte,
+          fileSize: initialTail.fileSize,
+          truncated: initialTail.truncated,
         })
+
+        // Start watching for changes
+        unwatchFn = source.watchFile(
+          file,
+          (event) => {
+            if (!subscribedFile) return
+            switch (event.type) {
+              case 'append':
+                if (event.chunk) {
+                  safeSend(ws, {
+                    type: 'append',
+                    file,
+                    chunk: event.chunk,
+                    fromByte: event.fromByte ?? 0,
+                    toByte: event.toByte ?? 0,
+                    fileSize: event.fileSize ?? 0,
+                  })
+                }
+                break
+              case 'tail':
+                safeSend(ws, {
+                  type: 'tail',
+                  file,
+                  chunk: event.chunk ?? '',
+                  toByte: event.toByte ?? 0,
+                  fileSize: event.fileSize ?? 0,
+                  truncated: event.truncated ?? false,
+                })
+                break
+              case 'rotated':
+                safeSend(ws, {
+                  type: 'rotated',
+                  file,
+                  reason: event.reason ?? 'truncated',
+                })
+                break
+            }
+          },
+          (err) => {
+            // Show error briefly, then clear (transient network issues)
+            safeSend(ws, { type: 'error', message: err.message })
+            if (transientErrorTimer) clearTimeout(transientErrorTimer)
+            transientErrorTimer = setTimeout(() => {
+              transientErrorTimer = null
+            }, 3000)
+          },
+        )
       } catch (e) {
-        safeSend(ws, { type: 'error', message: e instanceof Error ? e.message : 'Failed to read log' })
-        return
-      }
-
-      // watch for changes (best-effort)
-      try {
-        const abs = subscribedAbs
-        if (!abs) return
-        const fsSync = await import('node:fs')
-        watcher = fsSync.watch(abs, { persistent: false }, (evt) => {
-          scheduleRead(evt === 'rename' ? 'rename' : 'change')
+        safeSend(ws, {
+          type: 'error',
+          message: e instanceof Error ? e.message : 'Failed to subscribe',
         })
-      } catch {
-        // If watch fails (platform/filesystem), client can still refresh manually (HTTP endpoints remain).
-        watcher = null
       }
-
-      // Fallback poll: fs.watch can miss append events on some Windows setups.
-      // This keeps WS "push" semantics while guaranteeing progress.
-      pollTimer = setInterval(() => {
-        if (!subscribedAbs || !subscribedFile) return
-        scheduleRead('change')
-      }, 1000)
     })
 
     ws.on('close', () => {
@@ -198,4 +174,3 @@ export function mountWs(httpServer: HttpServer): void {
     })
   })
 }
-

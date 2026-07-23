@@ -32,3 +32,32 @@ export interface ReadLogResponse {
   toByte: number
   truncated: boolean
 }
+
+export type SourceMode = 'local' | 'remote'
+
+export interface RemoteConfig {
+  baseUrl: string
+  username: string
+  password: string
+  /** Log directory path on AEM (e.g. "logs/"). Filenames are resolved relative to this. */
+  logPath: string
+  /** Bare filenames only (e.g. "error.log"), not full paths. */
+  logFiles: string[]
+}
+
+export interface RemoteConfigPublic {
+  baseUrl: string
+  username: string
+  /** Password is only sent to server, never returned from server. */
+  logPath: string
+  logFiles: string[]
+  hasPassword: boolean
+}
+
+export interface SourceModeResponse {
+  ok: boolean
+  mode: SourceMode
+  configured: boolean
+  remoteConfig?: RemoteConfigPublic
+  localRootPath?: string | null
+}

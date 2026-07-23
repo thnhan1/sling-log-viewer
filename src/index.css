@@ -334,7 +334,7 @@ select.input-macos option {
 
 .btn-macos--primary {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-btn-primary-text, #fff);
 }
 .btn-macos--primary:hover {
   background: #409cff;

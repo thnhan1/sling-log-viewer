@@ -13,3 +13,29 @@ export function getEnvLogRoot(): string | null {
   const t = raw.trim()
   return t.length > 0 ? t : null
 }
+
+export function getEnvAemUrl(): string | null {
+  const raw = process.env.AEM_UAT_URL ?? ''
+  const t = raw.trim()
+  return t.length > 0 ? t : null
+}
+
+export function getEnvAemUser(): string | null {
+  const raw = process.env.AEM_UAT_USER ?? ''
+  const t = raw.trim()
+  return t.length > 0 ? t : null
+}
+
+export function getEnvAemPass(): string | null {
+  const raw = process.env.AEM_UAT_PASS ?? ''
+  const t = raw.trim()
+  return t.length > 0 ? t : null
+}
+
+export function getEnvAemLogFiles(): string[] {
+  const raw = process.env.AEM_LOG_FILES ?? ''
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}

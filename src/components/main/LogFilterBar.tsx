@@ -1,4 +1,5 @@
 import type { LogBookmark } from '../../lib/bookmarks'
+import { DateTimeInput } from './DateTimeInput'
 
 export function LogFilterBar({
   viewQuickFilter,
@@ -120,24 +121,20 @@ export function LogFilterBar({
         <span className="divider-macos" />
 
         {/* Time range */}
-        <input
-          type="datetime-local"
-          className="input-macos w-[170px]"
+        <DateTimeInput
           value={timeFromStr}
-          onChange={(e) => setTimeFromStr(e.target.value)}
-          title="From time"
+          onChange={setTimeFromStr}
+          placeholder="From time..."
         />
         <span className="text-ui-sm text-muted">to</span>
-        <input
-          type="datetime-local"
-          className="input-macos w-[170px]"
+        <DateTimeInput
           value={timeToStr}
-          onChange={(e) => setTimeToStr(e.target.value)}
-          title="To time"
+          onChange={setTimeToStr}
+          placeholder="To time..."
         />
         {hasTimeFilter && (
           <button type="button" className="btn-macos text-ui-sm" onClick={onClearTime} title="Clear time range">
-            Clear time
+            Clear
           </button>
         )}
 

@@ -18,7 +18,7 @@ export function LogLineRow({
   isSearchHit: boolean
   isActiveSearchLine: boolean
   bookmarks: LogBookmark[]
-  onToggleLineBookmark: (raw: string) => void
+  onToggleLineBookmark: (fileName: string, raw: string) => void
 }) {
   const threadNeedsBrackets = Boolean(row.thread && !row.thread.trimStart().startsWith('['))
   const fallbackUnknown = row.level === 'UNKNOWN' && !row.timestamp && !row.thread && !row.bundleOrClass
@@ -47,7 +47,7 @@ export function LogLineRow({
           bm ? 'text-warning opacity-100' : 'text-transparent opacity-0'
         } hover:scale-110`}
         title={bm ? 'Remove bookmark' : 'Bookmark'}
-        onClick={() => onToggleLineBookmark(row.raw)}
+        onClick={() => onToggleLineBookmark(selectedFile, row.raw)}
       >
         {bm ? '★' : '☆'}
       </button>

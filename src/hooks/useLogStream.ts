@@ -131,19 +131,23 @@ export function useLogStream(file: string | null) {
         const msg = typeof ev.data === 'string' ? tryParseLogWsMsg(ev.data) : tryParseLogWsMsg(String(ev.data))
         if (!msg) return
         if (msg.type === 'error') {
+          // Transient errors (config race, network blips in remote mode) auto-clear.
+          // Persistent errors (bad auth) stay until next successful data.
           setError(msg.message)
-          // This is a common race (client remembers file, server hasn't received /api/config yet).
-          // Show briefly, then clear so it doesn't get "stuck".
-          if (msg.message === 'Configure root path first') {
-            if (transientErrorTimerRef.current) window.clearTimeout(transientErrorTimerRef.current)
-            transientErrorTimerRef.current = window.setTimeout(() => {
-              transientErrorTimerRef.current = null
-              setError(null)
-            }, 1500)
-          }
+          if (transientErrorTimerRef.current) window.clearTimeout(transientErrorTimerRef.current)
+          transientErrorTimerRef.current = window.setTimeout(() => {
+            transientErrorTimerRef.current = null
+            setError((prev) => (prev === msg.message ? null : prev))
+          }, 4000)
           return
         }
         if (msg.type === 'tail') {
+          // Successful data clears transient errors
+          setError(null)
+          if (transientErrorTimerRef.current) {
+            window.clearTimeout(transientErrorTimerRef.current)
+            transientErrorTimerRef.current = null
+          }
           carryRef.current = ''
           const { lines: parsed, nextCarry } = splitChunk(msg.chunk ?? '', '')
           carryRef.current = nextCarry
@@ -153,6 +157,12 @@ export function useLogStream(file: string | null) {
           return
         }
         if (msg.type === 'append') {
+          // Successful data clears transient errors
+          setError(null)
+          if (transientErrorTimerRef.current) {
+            window.clearTimeout(transientErrorTimerRef.current)
+            transientErrorTimerRef.current = null
+          }
           if (msg.fileSize !== undefined) setFileSize(msg.fileSize)
           if (msg.chunk) {
             const { lines: parsed, nextCarry } = splitChunk(msg.chunk, carryRef.current)
