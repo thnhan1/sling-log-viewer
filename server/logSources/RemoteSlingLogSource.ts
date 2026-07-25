@@ -89,18 +89,33 @@ function fetchWithBasicAuth(
 
 /**
  * Extract timestamp from a log line for deduplication.
- * Handles both EU (dd.MM.yyyy HH:mm:ss) and ISO (yyyy-MM-dd HH:mm:ss) formats.
+ * Handles EU (dd.MM.yyyy HH:mm:ss), ISO (yyyy-MM-dd HH:mm:ss),
+ * and level-first formats (*LEVEL* timestamp …).
  */
 function extractTimestampMs(line: string): number {
-  // EU format: 23.09.2025 14:35:01.123
+  // EU format at start: 23.09.2025 14:35:01.123
   let m = line.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/)
   if (m) {
     const [, d, mon, y, h, min, s, msRaw] = m
     const ms = msRaw ? parseInt(msRaw.slice(0, 3).padEnd(3, '0'), 10) : 0
     return new Date(+y, +mon - 1, +d, +h, +min, +s, ms).getTime()
   }
-  // ISO format: 2025-09-23 14:35:01,123
+  // ISO format at start: 2025-09-23 14:35:01,123
   m = line.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:[.,](\d+))?/)
+  if (m) {
+    const [, y, mon, d, h, min, s, msRaw] = m
+    const ms = msRaw ? parseInt(msRaw.slice(0, 3).padEnd(3, '0'), 10) : 0
+    return new Date(+y, +mon - 1, +d, +h, +min, +s, ms).getTime()
+  }
+  // Level-first format: *LEVEL* dd.MM.yyyy HH:mm:ss …
+  m = line.match(/^\*[A-Z]+\*\s+(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/)
+  if (m) {
+    const [, d, mon, y, h, min, s, msRaw] = m
+    const ms = msRaw ? parseInt(msRaw.slice(0, 3).padEnd(3, '0'), 10) : 0
+    return new Date(+y, +mon - 1, +d, +h, +min, +s, ms).getTime()
+  }
+  // Level-first ISO: *LEVEL* 2025-09-23 14:35:01,123 …
+  m = line.match(/^\*[A-Z]+\*\s+(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:[.,](\d+))?/)
   if (m) {
     const [, y, mon, d, h, min, s, msRaw] = m
     const ms = msRaw ? parseInt(msRaw.slice(0, 3).padEnd(3, '0'), 10) : 0
@@ -123,6 +138,13 @@ export class RemoteSlingLogSource implements LogSource {
   readonly needsPolling = true
 
   private config: RemoteConfig
+  /**
+   * Cached body from the most recent readTail() call.
+   * watchFile() reuses this for its first poll to avoid a separate HTTP fetch
+   * that could race (miss lines written between the two requests).
+   */
+  private lastReadTailBody: string | null = null
+  private lastReadTailFile: string | null = null
 
   constructor(config: RemoteConfig) {
     this.config = config
@@ -149,11 +171,9 @@ export class RemoteSlingLogSource implements LogSource {
 
   async statFile(relativePath: string): Promise<FileMeta> {
     // AEM tailer.txt doesn't expose file metadata directly.
-    // Return a placeholder — the UI shows size after the first fetch.
     try {
       const body = await this.fetchTail(relativePath, 1)
-      const lines = body.split('\n').filter(Boolean)
-      return { size: lines.length, mtimeMs: Date.now() }
+      return { size: Buffer.byteLength(body, 'utf8'), mtimeMs: Date.now() }
     } catch {
       return { size: 0, mtimeMs: Date.now() }
     }
@@ -162,13 +182,15 @@ export class RemoteSlingLogSource implements LogSource {
   async readTail(relativePath: string): Promise<TailResult> {
     try {
       const body = await this.fetchTail(relativePath, 1000)
-      const lines = body.split('\n')
-      const fileSize = lines.filter(Boolean).length
+      // Cache for watchFile's first poll to avoid a racing second HTTP fetch
+      this.lastReadTailBody = body
+      this.lastReadTailFile = relativePath
+      const byteLen = Buffer.byteLength(body, 'utf8')
       return {
         chunk: body,
         fromByte: 0,
-        toByte: Buffer.byteLength(body, 'utf8'),
-        fileSize,
+        toByte: byteLen,
+        fileSize: byteLen,
         truncated: false,
       }
     } catch (err) {
@@ -178,8 +200,15 @@ export class RemoteSlingLogSource implements LogSource {
   }
 
   async readSince(_relativePath: string, _sinceByte: number): Promise<SinceResult> {
-    // Remote source doesn't use byte-offset tracking.
-    return { chunk: '', fromByte: 0, toByte: 0, fileSize: 0 }
+    // Remote source doesn't support byte-offset tracking — fetch fresh tail instead.
+    try {
+      const body = await this.fetchTail(_relativePath, 1000)
+      const byteLen = Buffer.byteLength(body, 'utf8')
+      return { chunk: body, fromByte: 0, toByte: byteLen, fileSize: byteLen }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      throw new Error(`Failed to fetch log from AEM: ${message}`)
+    }
   }
 
   async clearFile(_relativePath: string): Promise<void> {
@@ -194,61 +223,103 @@ export class RemoteSlingLogSource implements LogSource {
   ): () => void {
     let stopped = false
     let timer: NodeJS.Timeout | null = null
+    let polling = false // guards against concurrent polls corrupting dedup state
 
     // Dedupe state
     let lastTimestampMs = 0
     let sameSecondCount = 0
     let firstFetch = true
 
-    const poll = async () => {
-      if (stopped) return
+    /** Seed dedupe state from a body string and return without emitting. */
+    const seedDedupState = (body: string) => {
+      const allLines = body.split('\n')
+      const lines = allLines.filter((l) => l.trim())
+      if (lines.length > 0) {
+        const lastTs = extractTimestampMs(lines[lines.length - 1])
+        lastTimestampMs = lastTs
+        if (lastTs > 0) {
+          sameSecondCount = countSameSecond(lines, lastTs)
+        } else {
+          // No parseable timestamps — track total line count as fallback
+          sameSecondCount = lines.length
+        }
+      }
+    }
 
+    const poll = async () => {
+      if (stopped || polling) return
+      polling = true
       try {
+        if (firstFetch) {
+          firstFetch = false
+          // Reuse cached body from readTail() to avoid a racing second HTTP fetch.
+          // ws.ts always calls readTail() right before watchFile(), so the cache
+          // is warm for the same file. Using the cache guarantees the dedup state
+          // is seeded from the exact same data that was sent to the client.
+          if (this.lastReadTailBody !== null && this.lastReadTailFile === relativePath) {
+            seedDedupState(this.lastReadTailBody)
+            this.lastReadTailBody = null
+            this.lastReadTailFile = null
+            return
+          }
+          // Fallback: no cached body available, do a fresh fetch
+          const body = await this.fetchTail(relativePath, 1000)
+          seedDedupState(body)
+          return
+        }
+
         const body = await this.fetchTail(relativePath, 1000)
         const allLines = body.split('\n')
         const lines = allLines.filter((l) => l.trim())
 
-        if (firstFetch) {
-          firstFetch = false
-          // Only record dedupe state — caller (ws.ts) already sent the initial tail.
-          // This prevents double-emission of the same log lines.
-          if (lines.length > 0) {
-            const lastLine = lines[lines.length - 1]
-            lastTimestampMs = extractTimestampMs(lastLine)
-            sameSecondCount = countSameSecond(lines, lastTimestampMs)
-          }
-          return
-        }
-
         if (lines.length === 0) return
 
-        // Dedupe: find where new lines start
-        let startIdx = 0
-        let seenSameSecond = 0
-        for (let i = 0; i < lines.length; i++) {
-          const ts = extractTimestampMs(lines[i])
-          if (ts > lastTimestampMs) {
-            startIdx = i
-            break
-          }
-          if (ts === lastTimestampMs) {
-            seenSameSecond++
-            if (seenSameSecond > sameSecondCount) {
+        // Dedupe: find where new lines start.
+        // Use -1 as sentinel — only a successful boundary match sets startIdx >= 0.
+        let startIdx = -1
+
+        if (lastTimestampMs > 0) {
+          // ── Timestamp-based dedup (normal path) ──
+          let seenSameSecond = 0
+          for (let i = 0; i < lines.length; i++) {
+            const ts = extractTimestampMs(lines[i])
+            if (ts > lastTimestampMs) {
               startIdx = i
               break
             }
+            if (ts === lastTimestampMs) {
+              seenSameSecond++
+              if (seenSameSecond > sameSecondCount) {
+                startIdx = i
+                break
+              }
+            }
           }
-          // If all lines are older or equal, startIdx stays 0 → no new lines
+        } else {
+          // ── No timestamps available — use line-count fallback ──
+          // Only works reliably while the log file has ≤ 1000 lines (the tail limit).
+          // For AEM logs this is an edge case; timestamps are almost always parseable.
+          if (lines.length > sameSecondCount) {
+            startIdx = sameSecondCount // sameSecondCount doubles as lastTotalLineCount
+          }
         }
-
-        const newLines = lines.slice(startIdx)
 
         // Update dedupe state
         if (lines.length > 0) {
-          const lastLine = lines[lines.length - 1]
-          lastTimestampMs = extractTimestampMs(lastLine)
-          sameSecondCount = countSameSecond(lines, lastTimestampMs)
+          const lastTs = extractTimestampMs(lines[lines.length - 1])
+          lastTimestampMs = lastTs
+          if (lastTs > 0) {
+            sameSecondCount = countSameSecond(lines, lastTs)
+          } else {
+            // No timestamp — track total line count for next poll
+            sameSecondCount = lines.length
+          }
         }
+
+        // No new lines found — skip emission
+        if (startIdx === -1) return
+
+        const newLines = lines.slice(startIdx)
 
         if (newLines.length > 0) {
           const chunk = newLines.join('\n') + '\n'
@@ -257,7 +328,7 @@ export class RemoteSlingLogSource implements LogSource {
             chunk,
             fromByte: 0,
             toByte: Buffer.byteLength(chunk, 'utf8'),
-            fileSize: lines.length,
+            fileSize: Buffer.byteLength(body, 'utf8'),
           })
         }
 
@@ -268,6 +339,8 @@ export class RemoteSlingLogSource implements LogSource {
         }
       } catch (err) {
         onError(err instanceof Error ? err : new Error(String(err)))
+      } finally {
+        polling = false
       }
     }
 

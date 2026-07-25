@@ -406,12 +406,19 @@ export default function App() {
   const workspaceHydratedRef = useRef<string | null>(null)
   const tabsRestoredRef = useRef(false)
 
+  // Derive a workspace identity key that works for both local and remote modes.
+  // Local mode: keyed by rootPath. Remote mode: keyed by the AEM base URL.
+  const workspaceKey = useMemo(() => {
+    if (sourceMode === 'remote' && remoteConfigured) return remotePrefs.baseUrl || '__remote__'
+    return rootPath
+  }, [sourceMode, remoteConfigured, remotePrefs.baseUrl, rootPath])
+
   useEffect(() => {
-    if (!rootPath || files.length === 0) return
+    if (!workspaceKey || files.length === 0) return
     const ws = readWorkspace()
 
-    if (workspaceHydratedRef.current !== rootPath) {
-      workspaceHydratedRef.current = rootPath
+    if (workspaceHydratedRef.current !== workspaceKey) {
+      workspaceHydratedRef.current = workspaceKey
       setFileSearch(ws.fileSearch)
       setLevelsOff(new Set(ws.levelsOff))
       setSidebarSec({ ...ws.sidebarSections })
@@ -431,14 +438,14 @@ export default function App() {
         }
       }
     }
-  }, [rootPath, files])
+  }, [workspaceKey, files])
 
   // Persist workspace
   useEffect(() => {
     const t = window.setTimeout(() => {
       writeWorkspace({
         v: 2,
-        lastRootPath: rootPath,
+        lastRootPath: workspaceKey,
         selectedFile: activeFile,
         fileSearch,
         levelsOff: [...levelsOff],
@@ -452,7 +459,7 @@ export default function App() {
       })
     }, 400)
     return () => clearTimeout(t)
-  }, [rootPath, activeFile, fileSearch, levelsOff, sidebarSec, tabs])
+  }, [workspaceKey, activeFile, fileSearch, levelsOff, sidebarSec, tabs])
 
   const filteredFiles = useMemo(() => {
     const q = fileSearch.trim().toLowerCase()
