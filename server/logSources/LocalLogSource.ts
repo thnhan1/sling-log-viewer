@@ -44,9 +44,10 @@ export class LocalLogSource implements LogSource {
     relativePath: string,
     onEvent: (event: WatchEvent) => void,
     _onError: (err: Error) => void,
+    initialSinceByte?: number,
   ): () => void {
     const abs = assertUnderRoot(this.rootPath, relativePath)
-    let sinceByte = 0
+    let sinceByte = initialSinceByte ?? 0
     let watchTimer: NodeJS.Timeout | null = null
     let pollTimer: NodeJS.Timeout | null = null
     let watcher: fs.FSWatcher | null = null
@@ -101,15 +102,17 @@ export class LocalLogSource implements LogSource {
       }, 60)
     }
 
-    // Initial tail sets the byte offset
-    void (async () => {
-      try {
-        const tail = await readTailAligned(abs)
-        sinceByte = tail.toByte
-      } catch {
-        // File may not exist yet
-      }
-    })()
+    // Seed byte offset if caller didn't provide one (e.g. direct watchFile usage)
+    if (sinceByte === 0) {
+      void (async () => {
+        try {
+          const tail = await readTailAligned(abs)
+          sinceByte = tail.toByte
+        } catch {
+          // File may not exist yet
+        }
+      })()
+    }
 
     // fs.watch for near-instant updates
     try {

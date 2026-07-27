@@ -138,13 +138,6 @@ export class RemoteSlingLogSource implements LogSource {
   readonly needsPolling = true
 
   private config: RemoteConfig
-  /**
-   * Cached body from the most recent readTail() call.
-   * watchFile() reuses this for its first poll to avoid a separate HTTP fetch
-   * that could race (miss lines written between the two requests).
-   */
-  private lastReadTailBody: string | null = null
-  private lastReadTailFile: string | null = null
 
   constructor(config: RemoteConfig) {
     this.config = config
@@ -182,9 +175,6 @@ export class RemoteSlingLogSource implements LogSource {
   async readTail(relativePath: string): Promise<TailResult> {
     try {
       const body = await this.fetchTail(relativePath, 1000)
-      // Cache for watchFile's first poll to avoid a racing second HTTP fetch
-      this.lastReadTailBody = body
-      this.lastReadTailFile = relativePath
       const byteLen = Buffer.byteLength(body, 'utf8')
       return {
         chunk: body,
@@ -220,6 +210,7 @@ export class RemoteSlingLogSource implements LogSource {
     relativePath: string,
     onEvent: (event: WatchEvent) => void,
     onError: (err: Error) => void,
+    _initialSinceByte?: number,
   ): () => void {
     let stopped = false
     let timer: NodeJS.Timeout | null = null
@@ -252,17 +243,11 @@ export class RemoteSlingLogSource implements LogSource {
       try {
         if (firstFetch) {
           firstFetch = false
-          // Reuse cached body from readTail() to avoid a racing second HTTP fetch.
-          // ws.ts always calls readTail() right before watchFile(), so the cache
-          // is warm for the same file. Using the cache guarantees the dedup state
-          // is seeded from the exact same data that was sent to the client.
-          if (this.lastReadTailBody !== null && this.lastReadTailFile === relativePath) {
-            seedDedupState(this.lastReadTailBody)
-            this.lastReadTailBody = null
-            this.lastReadTailFile = null
-            return
-          }
-          // Fallback: no cached body available, do a fresh fetch
+          // Seed dedup state from a fresh fetch so subsequent polls can diff correctly.
+          // The client already received its initial data from readTail() — this poll
+          // is silent (no emission). Any lines written between readTail() and now
+          // are absorbed into the dedup state; they'll be re-fetched as part of
+          // subsequent appends with minimal duplication.
           const body = await this.fetchTail(relativePath, 1000)
           seedDedupState(body)
           return

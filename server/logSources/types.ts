@@ -57,11 +57,16 @@ export interface LogSource {
 
   /**
    * Start watching a file for changes.
+   * @param initialSinceByte — byte offset from a prior readTail() call. When
+   *   provided, the watcher skips its own initial tail read and uses this
+   *   offset instead, avoiding a race where content written between the two
+   *   reads would be silently skipped.
    * Returns a cleanup function that stops watching.
    */
   watchFile(
     relativePath: string,
     onEvent: (event: WatchEvent) => void,
     onError: (err: Error) => void,
+    initialSinceByte?: number,
   ): () => void
 }

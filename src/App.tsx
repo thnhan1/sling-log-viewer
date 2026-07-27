@@ -95,7 +95,7 @@ export default function App() {
   const [bookmarks, setBookmarks] = useState<LogBookmark[]>(() => loadBookmarks())
 
   const [sidebarSec, setSidebarSec] = useState<SidebarSectionsOpen>(() => ({
-    ...readWorkspace().sidebarSections,
+    ...readWorkspace('__default__').sidebarSections,
   }))
 
   const toggleSidebarSec = useCallback((key: keyof SidebarSectionsOpen) => {
@@ -415,10 +415,13 @@ export default function App() {
 
   useEffect(() => {
     if (!workspaceKey || files.length === 0) return
-    const ws = readWorkspace()
+    const wsKey = workspaceKey ?? '__default__'
+    const ws = readWorkspace(wsKey)
 
     if (workspaceHydratedRef.current !== workspaceKey) {
       workspaceHydratedRef.current = workspaceKey
+      // Reset per-workspace flags so tab restoration fires for the new identity
+      tabsRestoredRef.current = false
       setFileSearch(ws.fileSearch)
       setLevelsOff(new Set(ws.levelsOff))
       setSidebarSec({ ...ws.sidebarSections })
@@ -456,7 +459,7 @@ export default function App() {
         sidebarSections: sidebarSec,
         openTabs: tabs.map((t) => t.file),
         activeTabFile: activeFile,
-      })
+      }, workspaceKey ?? '__default__')
     }, 400)
     return () => clearTimeout(t)
   }, [workspaceKey, activeFile, fileSearch, levelsOff, sidebarSec, tabs])

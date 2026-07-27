@@ -115,7 +115,10 @@ export function mountWs(httpServer: HttpServer): void {
           truncated: initialTail.truncated,
         })
 
-        // Start watching for changes
+        // Start watching for changes.
+        // Pass initialTail.toByte so the watcher can skip its own redundant
+        // tail read — this prevents a race where content written between
+        // readTail() and the watcher's initial offset seed is silently lost.
         unwatchFn = source.watchFile(
           file,
           (event) => {
@@ -160,6 +163,7 @@ export function mountWs(httpServer: HttpServer): void {
               transientErrorTimer = null
             }, 3000)
           },
+          initialTail.toByte,
         )
       } catch (e) {
         safeSend(ws, {
