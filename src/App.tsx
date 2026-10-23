@@ -154,6 +154,12 @@ export default function App() {
     })
   }, [])
 
+  const closeAllTabs = useCallback(() => {
+    setTabs([])
+    setActiveTabId(null)
+    tabActionsRef.current = {}
+  }, [])
+
   const activateRelativeTab = useCallback((delta: number) => {
     setTabs((t) => {
       if (t.length === 0) return t
@@ -736,6 +742,19 @@ export default function App() {
                   >
                     <IconX size={13} />
                     Close tab
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    role="menuitem"
+                    disabled={tabs.length === 0}
+                    onClick={() => {
+                      closeAllTabs()
+                      setMenuOpen(false)
+                    }}
+                  >
+                    <IconX size={13} />
+                    Close all tabs
                   </button>
                 </div>
               )}
