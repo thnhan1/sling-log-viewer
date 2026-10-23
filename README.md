@@ -1,8 +1,8 @@
-# AEM Log Viewer
+# Slingtail
 
-> Real-time log viewer for AEM/Sling — tail logs from local filesystem or remote AEM instances via `tailer.txt`.
+> A modern, minimal, real-time log viewer for Apache Sling and AEM. Tail local files or stream remote instances via `tailer.txt`.
 
-![](./Screenshot%202026-05-16%20095719.png)
+[GitHub](https://github.com/thnhan1/sling-log-viewer)
 
 ## Quick Start
 
@@ -67,12 +67,12 @@ The app can also be configured entirely from the UI — folder path, remote conn
 - Click a bookmark to jump to that line
 
 ### UI
-- **13 themes** — macOS Dark, Dracula, One Dark, Monokai, Nord, Solarized Dark, Tokyo Night, Catppuccin Mocha, Gruvbox Dark, Ayu Mirage, Everforest Dark, GitHub Light, GitHub Dark
-- **Custom fonts** — 6 UI font stacks, 6 monospace stacks, or custom CSS
+- **10 themes** — Dracula, Tokyo Night, Catppuccin Mocha, Nord, One Dark, Gruvbox Dark, GitHub Light, Catppuccin Latte, Solarized Light, and System
+- **Custom fonts** — 7 UI font stacks, 6 monospace stacks, or custom CSS; Inter and JetBrains Mono are self-hosted
 - **Font sizing** — independent UI and log font size controls (10–28px)
-- **Sidebar** — collapsible sections for folder, files, levels
+- **Sidebar** — a quiet source switcher and file list
 - **Icons** — Lucide-style SVG icons, zero dependencies
-- **Glass-morphism** — frosted sidebar, toolbar, and modals
+- **Flat surfaces** — no glass, no gradients, no decorative window chrome
 
 ### Workspace
 - Remembers open tabs, active file, sidebar state, filters across sessions

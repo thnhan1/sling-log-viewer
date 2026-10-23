@@ -37,7 +37,7 @@ export function VirtualLogLines({
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => scrollEl,
-    estimateSize: () => 20,
+    estimateSize: () => 22,
     overscan: 18,
   })
 
@@ -84,12 +84,16 @@ export function VirtualLogLines({
 
   if (filteredLines.length === 0 || displayLines.length === 0) {
     if (filteredLines.length === 0) {
-      return <p className="text-muted px-2 py-4 text-mono">No lines match filters (or file is empty).</p>
+      return (
+        <div className="flex min-h-[40vh] items-center justify-center p-8 text-center">
+          <p className="text-ui text-muted">No lines match the current filters.</p>
+        </div>
+      )
     }
     return (
-      <p className="text-muted px-2 py-4 text-mono">
-        No lines in this time range. Adjust From/To or sidebar filters.
-      </p>
+      <div className="flex min-h-[40vh] items-center justify-center p-8 text-center">
+        <p className="text-ui text-muted">No lines in this time range. Adjust the From/To filters.</p>
+      </div>
     )
   }
 

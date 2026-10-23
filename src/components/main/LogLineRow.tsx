@@ -1,7 +1,6 @@
 import type { ParsedLogLine } from '@shared/types'
 import { isBookmarked, type LogBookmark } from '../../lib/bookmarks'
 import { renderRichLogText } from '../../lib/logLineRichText'
-import { LEVEL_CLASS } from '../../ui/logViewerUi'
 import { IconStar, IconStarFill } from '../../ui/icons'
 
 export function LogLineRow({
@@ -28,39 +27,42 @@ export function LogLineRow({
   return (
     <div
       data-log-index={displayIndex}
-      className={`flex items-start transition-colors ${
+      className={`group flex items-start transition-colors ${
         isActiveSearchLine
           ? 'lv-search-row-active'
           : isSearchHit
             ? 'lv-search-row-hit'
-            : 'hover:bg-[rgba(255,255,255,0.02)]'
+            : 'hover:bg-surface-hover'
       }`}
     >
       {/* Line number gutter */}
-      <span className="shrink-0 w-[56px] text-right pr-4 text-line-num select-none text-mono-sm leading-[20px] tabular-nums">
+      <span className="w-12 shrink-0 select-none pr-3 text-right font-mono text-[11px] leading-[22px] tabular-nums text-line-num">
         {displayIndex + 1}
       </span>
 
       {/* Bookmark toggle */}
       <button
         type="button"
-        className={`shrink-0 w-5 text-center text-mono-sm leading-[20px] transition-all ${
-          bm ? 'text-warning opacity-100' : 'text-transparent opacity-0'
-        } hover:scale-110`}
+        className={`mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded transition-opacity ${
+          bm
+            ? 'text-warning opacity-100'
+            : 'text-tertiary opacity-0 group-hover:opacity-100 hover:text-text'
+        }`}
         title={bm ? 'Remove bookmark' : 'Bookmark'}
+        aria-label={bm ? 'Remove bookmark' : 'Bookmark line'}
         onClick={() => onToggleLineBookmark(selectedFile, row.raw)}
       >
-        {bm ? <IconStarFill size={13} /> : <IconStar size={13} />}
+        {bm ? <IconStarFill size={12} /> : <IconStar size={12} />}
       </button>
 
       {/* Log line content */}
-      <div className="min-w-0 max-w-full flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-[20px] text-mono">
+      <div className="min-w-0 max-w-full flex-1 whitespace-pre-wrap break-words pl-1.5 leading-[22px] text-mono [overflow-wrap:anywhere]">
         {fallbackUnknown ? (
           renderRichLogText(row.message, 'message')
         ) : (
           <>
             {row.timestamp && <span className="lv-log-timestamp">{row.timestamp} </span>}
-            <span className={LEVEL_CLASS[row.level]}>*{row.level}*</span>
+            <span className={`lv-level lv-level--${row.level}`}>{row.level}</span>
             {row.thread && (
               <>
                 {threadNeedsBrackets ? (
@@ -86,7 +88,7 @@ export function LogLineRow({
             )}{' '}
             {renderRichLogText(row.message, 'message')}
             {row.cause && (
-              <div className="mt-0.5 border-l-2 border-accent pl-3 font-mono text-mono-sm opacity-90">
+              <div className="mt-0.5 border-l border-border-strong pl-3 font-mono text-[11px] leading-[20px] text-secondary">
                 {renderRichLogText(row.cause, 'cause')}
               </div>
             )}

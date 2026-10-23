@@ -67,7 +67,7 @@ const server = http.createServer(app)
 mountWs(server)
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`AEM Log Viewer http://127.0.0.1:${PORT}`)
+  console.log(`Slingtail running at http://127.0.0.1:${PORT}`)
 })
 
 server.on('error', (err: NodeJS.ErrnoException) => {

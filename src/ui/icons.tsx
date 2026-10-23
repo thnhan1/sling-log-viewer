@@ -17,7 +17,7 @@ function strokeIcon(d: JSX.Element): IconComponent {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -27,6 +27,17 @@ function strokeIcon(d: JSX.Element): IconComponent {
     </svg>
   )
 }
+
+// ══════════════════════════════════════════════════
+// Brand
+// ══════════════════════════════════════════════════
+
+export const IconLogo = strokeIcon(
+  <>
+    <path d="M4 7h8M4 12h6M4 17h8" />
+    <path d="m16 8 3 4-3 4" />
+  </>,
+)
 
 // ══════════════════════════════════════════════════
 // Navigation
@@ -171,4 +182,50 @@ export const IconTerminal = strokeIcon(
     <path d="m4 17 6-6-6-6" />
     <path d="M12 19h8" />
   </>,
+)
+
+// ══════════════════════════════════════════════════
+// Additional actions
+// ══════════════════════════════════════════════════
+
+export const IconFolder = strokeIcon(
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />,
+)
+export const IconPlug = strokeIcon(
+  <>
+    <path d="M12 22v-5" />
+    <path d="M9 8V2" />
+    <path d="M15 8V2" />
+    <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+  </>,
+)
+export const IconMoreHorizontal = strokeIcon(
+  <>
+    <circle cx={5} cy={12} r={1} fill="currentColor" stroke="none" />
+    <circle cx={12} cy={12} r={1} fill="currentColor" stroke="none" />
+    <circle cx={19} cy={12} r={1} fill="currentColor" stroke="none" />
+  </>,
+)
+export const IconCopy = strokeIcon(
+  <>
+    <rect width={14} height={14} x={8} y={8} rx={2} />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  </>,
+)
+export const IconArrowDownToLine = strokeIcon(
+  <>
+    <path d="M12 17V3" />
+    <path d="m6 11 6 6 6-6" />
+    <path d="M19 21H5" />
+  </>,
+)
+export const IconInfo = strokeIcon(
+  <>
+    <circle cx={12} cy={12} r={10} />
+    <path d="M12 16v-4" />
+    <path d="M12 8h.01" />
+  </>,
+)
+export const IconCheck = strokeIcon(
+  <path d="M20 6 9 17l-5-5" />,
 )

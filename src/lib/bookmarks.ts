@@ -1,4 +1,7 @@
-const STORAGE_KEY = 'aem-log-viewer-bookmarks'
+import { LEGACY_STORAGE_KEYS, STORAGE_KEYS, readMigrated, writeStorage } from './storageKeys'
+
+const STORAGE_KEY = STORAGE_KEYS.bookmarks
+const LEGACY_STORAGE_KEY = LEGACY_STORAGE_KEYS.bookmarks
 
 export interface LogBookmark {
   id: string
@@ -28,18 +31,14 @@ function safeParse(raw: string | null): LogBookmark[] {
 
 export function loadBookmarks(): LogBookmark[] {
   try {
-    return safeParse(localStorage.getItem(STORAGE_KEY))
+    return safeParse(readMigrated(STORAGE_KEY, LEGACY_STORAGE_KEY))
   } catch {
     return []
   }
 }
 
 export function saveBookmarks(rows: LogBookmark[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows))
-  } catch {
-    /* ignore */
-  }
+  writeStorage(STORAGE_KEY, JSON.stringify(rows))
 }
 
 export function bookmarksForFile(fileName: string, all: LogBookmark[]): LogBookmark[] {

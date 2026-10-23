@@ -1,267 +1,223 @@
-import type { LogLevel } from '@shared/types'
-import type { SidebarSectionsOpen } from '../../lib/workspaceSettings'
+import { useEffect, useRef, useState } from 'react'
 import type { LogFileRow } from '../../lib/api'
-import { formatBytes, LEVELS } from '../../ui/logViewerUi'
-import { IconChevronDown, IconChevronRight, IconDotFill, IconGear } from '../../ui/icons'
+import { formatBytes } from '../../ui/logViewerUi'
+import {
+  IconChevronDown,
+  IconGear,
+  IconLogo,
+  IconSearch,
+} from '../../ui/icons'
+import type { SettingsSection } from '../modals/SettingsModal'
 
 export function LogSidebar({
   open,
-  sidebarSec,
-  toggleSidebarSec,
-  onToggleSidebar,
-  pathInput,
-  setPathInput,
-  onConfigureRoot,
+  sourceMode,
+  onSwitchSourceMode,
+  remoteConfigured,
+  remoteBaseUrl,
   rootPath,
-  configErr,
   fileSearch,
   setFileSearch,
   filteredFiles,
   selectedFile,
   onSelectFile,
-  levelsOff,
-  onToggleLevel,
   onOpenSettings,
-  sourceMode,
-  onSwitchSourceMode,
-  remoteConfigured,
 }: {
   open: boolean
-  sidebarSec: SidebarSectionsOpen
-  toggleSidebarSec: (key: keyof SidebarSectionsOpen) => void
-  onToggleSidebar: () => void
-  pathInput: string
-  setPathInput: (v: string) => void
-  onConfigureRoot: (rawPath: string) => void
+  sourceMode: 'local' | 'remote'
+  onSwitchSourceMode: (mode: 'local' | 'remote') => void
+  remoteConfigured: boolean
+  remoteBaseUrl: string
   rootPath: string | null
-  configErr: string | null
   fileSearch: string
   setFileSearch: (v: string) => void
   filteredFiles: LogFileRow[]
   selectedFile: string | null
   onSelectFile: (name: string) => void
-  levelsOff: Set<LogLevel>
-  onToggleLevel: (l: LogLevel) => void
-  onOpenSettings: () => void
-  sourceMode: 'local' | 'remote'
-  onSwitchSourceMode: (mode: 'local' | 'remote') => void
-  remoteConfigured: boolean
+  onOpenSettings: (section?: SettingsSection) => void
 }) {
-  void onToggleSidebar
+  const asideRef = useRef<HTMLElement>(null)
+  const sourceRef = useRef<HTMLDivElement>(null)
+  const [sourceOpen, setSourceOpen] = useState(false)
+
+  useEffect(() => {
+    const el = asideRef.current
+    if (!el) return
+    if (open) el.removeAttribute('inert')
+    else el.setAttribute('inert', '')
+  }, [open])
+
+  useEffect(() => {
+    if (!sourceOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (sourceRef.current && !sourceRef.current.contains(e.target as Node)) {
+        setSourceOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [sourceOpen])
+
+  const sourceLabel = sourceMode === 'local' ? 'Local' : 'Remote'
+  const sourceDetail =
+    sourceMode === 'local'
+      ? rootPath || 'No folder selected'
+      : remoteConfigured
+        ? remoteBaseUrl || 'Connected'
+        : 'Not connected'
+  const sourceConnected = sourceMode === 'local' ? Boolean(rootPath) : remoteConfigured
+
   return (
     <aside
-      className={`absolute left-0 top-0 z-[60] flex h-full w-[260px] flex-col overflow-hidden glass-sidebar border-r border-border transition-[transform,opacity] duration-250 ease-out ${
-        open ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
-      }`}
+      ref={asideRef}
+      className={`app-sidebar ${open ? 'w-[248px]' : 'w-0'}`}
       aria-hidden={!open}
+      aria-label="Log sources"
     >
-      <div className="flex h-full min-h-0 w-[260px] flex-col">
-        {/* Sidebar header */}
-        <div className="shrink-0 px-3 pt-3 pb-2 border-b border-[rgba(255,255,255,0.05)]">
-          <div className="flex items-center justify-between">
-            <span className="text-ui-sm font-semibold text-text uppercase tracking-wider">
-              Log Viewer
-            </span>
-            {/* Source mode toggle */}
-            <div className="flex rounded-md border border-[rgba(255,255,255,0.10)] overflow-hidden">
-              <button
-                type="button"
-                className={`px-2 py-0.5 text-ui-xs transition-colors ${
-                  sourceMode === 'local'
-                    ? 'bg-accent text-white'
-                    : 'text-muted hover:text-text'
-                }`}
-                onClick={() => onSwitchSourceMode('local')}
-                title="Local filesystem"
-              >
-                Local
-              </button>
-              <button
-                type="button"
-                className={`px-2 py-0.5 text-ui-xs transition-colors ${
-                  sourceMode === 'remote'
-                    ? 'bg-accent text-white'
-                    : 'text-muted hover:text-text'
-                }`}
-                onClick={() => onSwitchSourceMode('remote')}
-                title="Remote AEM UAT"
-              >
-                Remote
-              </button>
-            </div>
-          </div>
+      <div className="flex h-full w-[248px] flex-col border-r border-border bg-surface">
+        {/* Brand */}
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
+          <IconLogo size={18} className="text-text" />
+          <span className="text-[13px] font-medium tracking-[-0.01em] text-text">
+            slingtail
+          </span>
         </div>
 
-        {/* ── Local mode: Folder section ── */}
-        {sourceMode === 'local' && (
-          <div className="shrink-0 border-b border-[rgba(255,255,255,0.05)]">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-              onClick={() => toggleSidebarSec('folder')}
-              aria-expanded={sidebarSec.folder}
-            >
-              <span className="shrink-0 text-muted">
-                {sidebarSec.folder ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
-              </span>
-              <span className="text-ui-sm font-semibold text-text select-none">
-                Log Folder
-              </span>
-            </button>
-            {sidebarSec.folder && (
-              <div className="px-3 pb-3 pt-0.5">
-                <input
-                  className="input-macos w-full mb-2"
-                  placeholder="e.g. /Users/name/logs"
-                  value={pathInput}
-                  onChange={(e) => setPathInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && void onConfigureRoot(pathInput)}
-                />
-                <button
-                  type="button"
-                  className="btn-macos btn-macos--primary w-full"
-                  onClick={() => void onConfigureRoot(pathInput)}
-                >
-                  Use folder
-                </button>
-                {rootPath && (
-                  <p className="mt-2 break-all text-ui-sm text-muted leading-snug" title={rootPath}>
-                    {rootPath}
-                  </p>
-                )}
-                {configErr && <p className="mt-2 text-ui-sm text-error">{configErr}</p>}
-                <p className="mt-2 text-ui-xs leading-snug text-muted">
-                  Set <code className="rounded-md bg-[rgba(255,255,255,0.08)] px-1 text-ui-xs">LOG_ROOT</code> in{' '}
-                  <code className="rounded-md bg-[rgba(255,255,255,0.08)] px-1 text-ui-xs">.env</code> as default.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Remote mode: connection status only ── */}
-        {sourceMode === 'remote' && (
-          <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-[rgba(255,255,255,0.05)]">
-            <span className="text-ui-sm font-semibold text-text select-none">Remote</span>
-            {remoteConfigured ? (
-              <span className="ml-auto flex items-center gap-1.5 text-ui-xs text-[#30d158]">
-                <IconDotFill size={7} /> connected
-              </span>
-            ) : (
-              <span className="ml-auto text-ui-xs text-muted">not configured</span>
-            )}
-          </div>
-        )}
-
-        {/* ── Log Files section (shared) ── */}
-        <div className="shrink-0 border-b border-[rgba(255,255,255,0.05)]">
+        {/* Source */}
+        <div ref={sourceRef} className="relative shrink-0 px-2 pt-2">
           <button
             type="button"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-            onClick={() => toggleSidebarSec('files')}
-            aria-expanded={sidebarSec.files}
+            className="source-row"
+            onClick={() => setSourceOpen((v) => !v)}
+            aria-expanded={sourceOpen}
+            aria-haspopup="menu"
           >
-            <span className="shrink-0 text-ui-xs text-muted select-none leading-none">
-              {sidebarSec.files ? '▾' : '▸'}
+            <span className={`status-dot ${sourceConnected ? 'is-on' : ''}`} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[12px] font-medium text-text">{sourceLabel}</span>
+              <span className="block truncate text-[11px] text-tertiary">{sourceDetail}</span>
             </span>
-            <span className="text-ui-sm font-semibold text-text select-none">
-              Log Files
-            </span>
+            <IconChevronDown size={14} className="shrink-0 text-tertiary" />
           </button>
-          {sidebarSec.files && (
-            <div className="px-3 pb-3 pt-0.5">
-              <input
-                className="input-macos w-full mb-2"
-                placeholder="Filter by name..."
-                value={fileSearch}
-                onChange={(e) => setFileSearch(e.target.value)}
-              />
-              <div className="max-h-[180px] overflow-auto rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.025)]">
-                {filteredFiles.length === 0 ? (
-                  <div className="p-3 text-ui-sm text-muted text-center">
-                    {sourceMode === 'remote' && !remoteConfigured
-                      ? 'Connect to AEM first'
-                      : sourceMode === 'remote'
-                        ? 'No log files configured'
-                        : 'No .log files found'}
-                  </div>
-                ) : (
-                  <ul className="py-0.5">
-                    {filteredFiles.map((f) => (
-                      <li key={f.name}>
-                        <button
-                          type="button"
-                          className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition-colors ${
-                            selectedFile === f.name
-                              ? 'bg-[rgba(10,132,255,0.18)] text-text'
-                              : 'text-text hover:bg-[rgba(255,255,255,0.04)]'
-                          }`}
-                          onClick={() => onSelectFile(f.name)}
-                        >
-                          <span className={`text-ui ${selectedFile === f.name ? 'font-medium' : ''}`}>
-                            {f.name}
-                          </span>
-                          <span className="text-ui-xs text-muted">
-                            {f.size > 0 ? formatBytes(f.size) : sourceMode === 'remote' ? 'remote' : '0 B'}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+
+          {sourceOpen && (
+            <div className="popover absolute left-2 right-2 top-full z-50 mt-1 p-1" role="menu">
+              <button
+                type="button"
+                className={`menu-item ${sourceMode === 'local' ? 'is-active' : ''}`}
+                role="menuitemradio"
+                aria-checked={sourceMode === 'local'}
+                onClick={() => {
+                  onSwitchSourceMode('local')
+                  setSourceOpen(false)
+                }}
+              >
+                Local files
+              </button>
+              <button
+                type="button"
+                className={`menu-item ${sourceMode === 'remote' ? 'is-active' : ''}`}
+                role="menuitemradio"
+                aria-checked={sourceMode === 'remote'}
+                onClick={() => {
+                  onSwitchSourceMode('remote')
+                  setSourceOpen(false)
+                }}
+              >
+                Remote AEM
+              </button>
+              <div className="menu-separator" />
+              <button
+                type="button"
+                className="menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onOpenSettings('connection')
+                  setSourceOpen(false)
+                }}
+              >
+                Configure connection…
+              </button>
             </div>
           )}
         </div>
 
-        {/* Levels section */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-auto">
-            <div>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-                onClick={() => toggleSidebarSec('levels')}
-                aria-expanded={sidebarSec.levels}
-              >
-                <span className="shrink-0 text-ui-xs text-muted select-none leading-none">
-                  {sidebarSec.levels ? '▾' : '▸'}
-                </span>
-                <span className="text-ui-sm font-semibold text-text select-none">
-                  Levels
-                </span>
-              </button>
-              {sidebarSec.levels && (
-                <div className="flex flex-wrap gap-1.5 px-3 pb-3 pt-0.5">
-                  {LEVELS.map((l) => {
-                    const on = !levelsOff.has(l)
-                    return (
-                      <button
-                        key={l}
-                        type="button"
-                        onClick={() => onToggleLevel(l)}
-                        className={`lv-lvl-chip ${
-                          on ? `lv-lvl-chip--on lv-lvl-chip--${l}` : 'lv-lvl-chip--off'
-                        }`}
-                      >
-                        {l}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+        {/* Files */}
+        <div className="flex min-h-0 flex-1 flex-col px-2 pt-3">
+          <div className="flex items-center justify-between px-2 pb-2">
+            <span className="label">Files</span>
+            {filteredFiles.length > 0 && (
+              <span className="text-[10px] tabular-nums text-tertiary">{filteredFiles.length}</span>
+            )}
+          </div>
+          <div className="px-2 pb-2">
+            <div className="relative">
+              <IconSearch
+                size={13}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"
+              />
+              <input
+                className="field h-7 pl-8"
+                placeholder="Filter files…"
+                value={fileSearch}
+                onChange={(e) => setFileSearch(e.target.value)}
+                aria-label="Filter log files"
+                spellCheck={false}
+              />
             </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+            {filteredFiles.length === 0 ? (
+              <div className="px-2 py-8 text-center">
+                <p className="text-[11px] leading-relaxed text-tertiary">
+                  {sourceMode === 'remote' && !remoteConfigured
+                    ? 'Connect to an AEM instance to list logs.'
+                    : sourceMode === 'remote'
+                      ? 'No log files configured.'
+                      : rootPath
+                        ? 'No .log files found in this folder.'
+                        : 'Choose a folder to list log files.'}
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm mt-3"
+                  onClick={() => onOpenSettings('connection')}
+                >
+                  {sourceMode === 'remote' ? 'Connect to AEM' : 'Choose folder'}
+                </button>
+              </div>
+            ) : (
+              <ul className="space-y-0.5">
+                {filteredFiles.map((f) => (
+                  <li key={f.name}>
+                    <button
+                      type="button"
+                      className={`file-row ${selectedFile === f.name ? 'is-active' : ''}`}
+                      onClick={() => onSelectFile(f.name)}
+                      title={f.name}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                      <span className="shrink-0 text-[10px] tabular-nums text-tertiary">
+                        {f.size > 0 ? formatBytes(f.size) : sourceMode === 'remote' ? 'remote' : '0 B'}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
-        {/* Bottom settings */}
-        <div className="shrink-0 border-t border-[rgba(255,255,255,0.05)] px-3 py-2">
+        {/* Footer */}
+        <div className="shrink-0 border-t border-border p-2">
           <button
             type="button"
-            className="btn-macos flex items-center gap-2"
-            onClick={onOpenSettings}
+            className="sidebar-action"
+            onClick={() => onOpenSettings('appearance')}
           >
-            <IconGear size={14} /> Settings
+            <IconGear size={15} />
+            Settings
           </button>
         </div>
       </div>

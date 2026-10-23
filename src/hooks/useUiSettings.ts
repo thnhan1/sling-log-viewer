@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { applyTheme } from '../ui/themes'
+import { applyTheme, migrateThemeId } from '../ui/themes'
+import { LEGACY_STORAGE_KEYS, STORAGE_KEYS, readMigrated } from '../lib/storageKeys'
 
-const STORAGE_KEY = 'aem-log-viewer-ui'
-const DEFAULT_THEME = 'macos-dark'
+const STORAGE_KEY = STORAGE_KEYS.ui
+const LEGACY_STORAGE_KEY = LEGACY_STORAGE_KEYS.ui
+const DEFAULT_THEME = 'dracula'
 
 export const FONT_UI_STACKS: { id: string; label: string; stack: string }[] = [
   { id: 'default', label: 'Default', stack: '' },
@@ -10,8 +12,9 @@ export const FONT_UI_STACKS: { id: string; label: string; stack: string }[] = [
     id: 'system',
     label: 'System UI',
     stack:
-      '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif',
   },
+  { id: 'inter', label: 'Inter', stack: '"Inter Variable", "Inter", sans-serif' },
   { id: 'sfPro', label: 'SF Pro', stack: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' },
   { id: 'tahoma', label: 'Tahoma', stack: 'Tahoma, "MS Sans Serif", "Microsoft Sans Serif", sans-serif' },
   { id: 'arial', label: 'Arial', stack: 'Arial, Helvetica, sans-serif' },
@@ -40,7 +43,7 @@ export function sanitizeFontStack(input: string): string {
     .trim()
 }
 
-const UI_BASE = 12
+const UI_BASE = 13
 const LOG_BASE = 13
 const UI_MIN_PX = 10
 const UI_MAX_PX = 28
@@ -89,8 +92,7 @@ function migrate(raw: Record<string, unknown>): UiSettingsPersisted {
   const fontFamilyLog =
     typeof raw.fontFamilyLog === 'string' ? sanitizeFontStack(raw.fontFamilyLog) : ''
 
-  const theme =
-    typeof raw.theme === 'string' && raw.theme.trim() ? raw.theme.trim() : DEFAULT_THEME
+  const theme = migrateThemeId(typeof raw.theme === 'string' ? raw.theme : null)
 
   return {
     fontStepUi: clampUiStep(fontStepUi),
@@ -103,7 +105,7 @@ function migrate(raw: Record<string, unknown>): UiSettingsPersisted {
 
 export function readPersistedUi(): UiSettingsPersisted {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = readMigrated(STORAGE_KEY, LEGACY_STORAGE_KEY)
     if (!raw) return { ...defaultPersisted }
     const p = JSON.parse(raw) as Record<string, unknown>
     return migrate(p)
@@ -113,7 +115,11 @@ export function readPersistedUi(): UiSettingsPersisted {
 }
 
 function save(p: UiSettingsPersisted): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(p))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(p))
+  } catch {
+    /* ignore */
+  }
 }
 
 export function applyFontsToDocument(p: UiSettingsPersisted): void {
@@ -164,7 +170,7 @@ export function useUiSettings() {
   }, [])
 
   const setTheme = useCallback((theme: string) => {
-    setState((s) => ({ ...s, theme }))
+    setState((s) => ({ ...s, theme: migrateThemeId(theme) }))
   }, [])
 
   const fontUiPx = useMemo(() => UI_BASE + state.fontStepUi, [state.fontStepUi])

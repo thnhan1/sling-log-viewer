@@ -8,10 +8,10 @@ interface Props {
 }
 
 /**
- * Modern datetime picker with seconds precision.
- * Click the trigger to open a popover with separate date + time (HH:MM:SS) inputs.
+ * Compact datetime picker with seconds precision.
+ * Click the trigger to open a popover with separate date + time inputs.
  */
-export function DateTimeInput({ value, onChange, placeholder = 'Select time...' }: Props) {
+export function DateTimeInput({ value, onChange, placeholder = 'Select time…' }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -28,7 +28,9 @@ export function DateTimeInput({ value, onChange, placeholder = 'Select time...' 
   // Close on Escape
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
@@ -68,79 +70,70 @@ export function DateTimeInput({ value, onChange, placeholder = 'Select time...' 
     setOpen(false)
   }
 
-  const display = value
-    ? formatDisplay(value)
-    : ''
+  const display = value ? formatDisplay(value) : ''
 
   return (
     <div ref={ref} className="relative shrink-0">
-      {/* Trigger */}
       <button
         type="button"
-        className={`input-macos flex items-center gap-2 w-[175px] cursor-pointer text-left transition-all ${
-          open ? 'border-accent shadow-[0_0_0_3px_rgba(10,132,255,0.16)]' : ''
-        } ${!display ? 'text-muted' : 'text-text'}`}
+        className={`field flex h-7 w-[142px] cursor-pointer items-center gap-1.5 px-2 text-left ${
+          !display ? 'text-tertiary' : 'text-text'
+        }`}
         onClick={() => setOpen((o) => !o)}
         title={value || placeholder}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
-        <IconCalendar size={13} className="shrink-0 opacity-40" />
-        <span className={`truncate flex-1 text-ui-sm ${!display ? '' : ''}`}>
-          {display || placeholder}
-        </span>
-        {value && (
-          <span
-            className="shrink-0 text-muted hover:text-text text-ui leading-none w-4 h-4 flex items-center justify-center rounded-full hover:bg-[rgba(255,255,255,0.12)] transition-colors"
-            onClick={(e) => { e.stopPropagation(); clear() }}
-            title="Clear"
-          >
-            <IconX size={11} />
-          </span>
-        )}
+        <IconCalendar size={12} className="shrink-0 text-tertiary" />
+        <span className="min-w-0 flex-1 truncate text-[11px]">{display || placeholder}</span>
+        {value && <IconX size={10} className="shrink-0 text-tertiary" />}
       </button>
 
-      {/* Popover */}
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 z-[70] rounded-xl glass-modal border border-[rgba(255,255,255,0.10)] shadow-2xl p-4 w-[248px]">
+        <div className="popover absolute left-0 top-full z-[70] mt-1.5 w-[248px] p-3" role="dialog">
           <div className="space-y-3">
-            {/* Date */}
             <div>
-              <label className="block mb-1 text-ui-xs font-medium text-muted uppercase tracking-wider">
-                Date
-              </label>
+              <label className="label mb-1 block">Date</label>
               <input
                 type="date"
-                className="input-macos w-full"
+                className="field h-7"
                 value={dateStr}
-                onChange={(e) => { setDateStr(e.target.value); setHasEdited(true) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') commit(dateStr, timeStr) }}
+                onChange={(e) => {
+                  setDateStr(e.target.value)
+                  setHasEdited(true)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commit(dateStr, timeStr)
+                }}
                 autoFocus
               />
             </div>
 
-            {/* Time with seconds */}
             <div>
-              <label className="block mb-1 text-ui-xs font-medium text-muted uppercase tracking-wider">
-                Time
-              </label>
+              <label className="label mb-1 block">Time</label>
               <input
                 type="time"
                 step="1"
-                className="input-macos w-full"
+                className="field h-7"
                 value={timeStr}
-                onChange={(e) => { setTimeStr(e.target.value); setHasEdited(true) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') commit(dateStr, timeStr) }}
+                onChange={(e) => {
+                  setTimeStr(e.target.value)
+                  setHasEdited(true)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commit(dateStr, timeStr)
+                }}
               />
-              <p className="mt-0.5 text-ui-xs text-muted">HH:MM:SS · seconds precision</p>
+              <p className="mt-1 text-[10px] text-tertiary">HH:MM:SS · seconds precision</p>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-[rgba(255,255,255,0.06)]">
-              <button type="button" className="btn-macos text-ui-sm" onClick={clear}>
+            <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={clear}>
                 Clear
               </button>
               <button
                 type="button"
-                className="btn-macos btn-macos--primary text-ui-sm"
+                className="btn btn-primary btn-sm"
                 onClick={() => commit(dateStr, timeStr)}
                 disabled={!hasEdited && !value}
               >

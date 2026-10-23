@@ -9,38 +9,37 @@ import { applyLogViewFilters } from '../../lib/logViewFilters'
 import { LogFilterBar } from './LogFilterBar'
 import { VirtualLogLines } from './VirtualLogLines'
 import { StatusBar } from './StatusBar'
-import { formatBytes } from '../../ui/logViewerUi'
-import { IconGear, IconSync, IconTrash } from '../../ui/icons'
+import { IconArrowDownToLine } from '../../ui/icons'
+
+export interface TabActions {
+  reload: () => void
+  clearView: () => void
+}
 
 function filterLines(rows: ParsedLogLine[], levelsOff: Set<LogLevel>): ParsedLogLine[] {
   return rows.filter((row) => !levelsOff.has(row.level))
 }
-
-const btnCls =
-  'btn-macos text-ui-sm'
 
 export function LogTabPanel({
   file,
   active,
   refreshKey,
   levelsOff,
+  onToggleLevel,
   bookmarks,
   onToggleLineBookmark,
   onRemoveBookmark,
-  onRequestClearFile,
-  onOpenSettings,
-  sourceMode,
+  onRegisterActions,
 }: {
   file: string
   active: boolean
   refreshKey: number
   levelsOff: Set<LogLevel>
+  onToggleLevel: (l: LogLevel) => void
   bookmarks: LogBookmark[]
   onToggleLineBookmark: (fileName: string, raw: string) => void
   onRemoveBookmark: (id: string) => void
-  onRequestClearFile: () => void
-  onOpenSettings: () => void
-  sourceMode?: 'local' | 'remote'
+  onRegisterActions: (file: string, actions: TabActions | null) => void
 }) {
   const { lines, truncated, error, fileSize, reloadTail, clearViewOnly } = useLogStream(file)
 
@@ -52,6 +51,15 @@ export function LogTabPanel({
       void reloadTail()
     }
   }, [refreshKey, reloadTail])
+
+  // Expose the active tab's actions to the app chrome.
+  useEffect(() => {
+    onRegisterActions(file, {
+      reload: () => void reloadTail(),
+      clearView: () => void clearViewOnly(),
+    })
+    return () => onRegisterActions(file, null)
+  }, [file, reloadTail, clearViewOnly, onRegisterActions])
 
   const [viewQuickFilter, setViewQuickFilter] = useState('')
   const [timeFromStr, setTimeFromStr] = useState('')
@@ -223,15 +231,7 @@ export function LogTabPanel({
   )
 
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
-
-  const jumpToTop = useCallback(() => {
-    setStickToBottom(false)
-    scrollingProgrammaticallyRef.current = true
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-    requestAnimationFrame(() => {
-      scrollingProgrammaticallyRef.current = false
-    })
-  }, [])
+  const toggleBookmarks = useCallback(() => setBookmarksOpen((o) => !o), [])
 
   const jumpToRawLine = useCallback(
     (raw: string) => {
@@ -244,8 +244,6 @@ export function LogTabPanel({
       setViewQuickFilter('')
       setTimeFromStr('')
       setTimeToStr('')
-      // After clearing filters the pending scroll will fire via the filtered→displayLines chain.
-      // For simplicity, just do it in a microtask.
       queueMicrotask(() => {
         const idx = displayLines.findIndex((r) => r.raw === raw)
         if (idx >= 0) scrollToDisplayIndex(idx, 'center')
@@ -255,8 +253,6 @@ export function LogTabPanel({
   )
 
   const scrollToBottomNow = useCallback(() => {
-    // Prefer virtualizer's scrollToIndex for accuracy (accounts for measured heights).
-    // Falls back to direct scrollTop if virtualizer hasn't registered yet.
     if (scrollToIndexRef.current) {
       const lastIdx = displayLines.length - 1
       if (lastIdx >= 0) {
@@ -276,7 +272,6 @@ export function LogTabPanel({
     if (displayLines.length === 0) return
     scrollingProgrammaticallyRef.current = true
     scrollToBottomNow()
-    // Mark that we need a phase-2 correction after measurements settle
     prevLenRef.current = displayLines.length
   }, [displayLines.length, scrollToBottomNow])
 
@@ -285,7 +280,6 @@ export function LogTabPanel({
     if (!stickToBottomRef.current) return
     if (displayLines.length === 0) return
     let cancelled = false
-    // Wait for virtualizer ResizeObserver → measureElement → re-render (if any)
     const frame = requestAnimationFrame(() => {
       if (cancelled || !stickToBottomRef.current) return
       setTimeout(() => {
@@ -320,56 +314,12 @@ export function LogTabPanel({
     setStickToBottom(dist < 64)
   }, [])
 
-  const hasSidebarFiltersEffect = filtered.length !== lines.length
-
   return (
     <div
       style={{ display: active ? undefined : 'none' }}
-      className="flex flex-col flex-1 min-h-0 min-w-0"
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col"
     >
-      {/* Per-tab header */}
-      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-bg px-3 py-1 h-[28px]">
-        <div className="flex-1" />
-        <div className="flex items-center gap-0.5">
-          <span className="text-ui-sm text-muted mr-1">
-            {formatBytes(fileSize)} · {displayLines.length.toLocaleString()}/{lines.length.toLocaleString()}
-            {hasSidebarFiltersEffect && ` · ${filtered.length.toLocaleString()} filtered`}
-            {searchQ && searchMatchLineIndices.length > 0 && ` · ${searchMatchLineIndices.length} hits`}
-            {truncated && ' · tail'}
-          </span>
-          {!stickToBottom && (
-            <button type="button" className={btnCls} onClick={jumpLatest} title="Jump to latest">
-              Bottom
-            </button>
-          )}
-          <button type="button" className={btnCls} onClick={clearViewOnly} title="Clear view">
-            Clear
-          </button>
-          {sourceMode !== 'remote' && (
-            <button
-              type="button"
-              className={`${btnCls} btn-macos--danger flex items-center gap-1`}
-              onClick={onRequestClearFile}
-              title="Clear file on disk"
-            >
-              <IconTrash size={12} /> Clear file
-            </button>
-          )}
-          <button type="button" className={btnCls} onClick={() => void reloadTail()} title="Refresh">
-            <IconSync size={12} />
-          </button>
-          <span className="divider-macos" />
-          <button type="button" className={btnCls} onClick={onOpenSettings} title="Settings">
-            <IconGear size={13} />
-          </button>
-        </div>
-      </header>
-
-      {error && (
-        <div className="border-b border-[rgba(255,255,255,0.06)] bg-[rgba(255,159,10,0.08)] px-4 py-1.5 text-ui text-warning">
-          {error}
-        </div>
-      )}
+      {error && <div className="error-banner">{error}</div>}
 
       <LogFilterBar
         viewQuickFilter={viewQuickFilter}
@@ -398,9 +348,10 @@ export function LogTabPanel({
           setTimeFromStr('')
           setTimeToStr('')
         }}
-        onJumpToTop={jumpToTop}
+        levelsOff={levelsOff}
+        onToggleLevel={onToggleLevel}
         bookmarksOpen={bookmarksOpen}
-        onToggleBookmarksOpen={() => setBookmarksOpen((o) => !o)}
+        onToggleBookmarksOpen={toggleBookmarks}
         fileBookmarks={fileBookmarks}
         onJumpToRawLine={jumpToRawLine}
         onRemoveBookmark={onRemoveBookmark}
@@ -409,7 +360,7 @@ export function LogTabPanel({
       <div
         ref={setScrollContainer}
         onScroll={onScroll}
-        className="font-mono text-mono flex-1 overflow-auto bg-bg"
+        className="flex-1 overflow-auto bg-bg font-mono text-mono"
       >
         <VirtualLogLines
           scrollEl={scrollEl}
@@ -429,10 +380,21 @@ export function LogTabPanel({
         />
       </div>
 
+      {!stickToBottom && (
+        <button type="button" className="jump-pill" onClick={jumpLatest}>
+          Jump to latest
+          <IconArrowDownToLine size={13} />
+        </button>
+      )}
+
       <StatusBar
         selectedFile={file}
         fileSize={fileSize}
         lineCount={displayLines.length}
+        totalLineCount={lines.length}
+        filteredLineCount={filtered.length}
+        truncated={truncated}
+        searchHitCount={searchMatchLineIndices.length}
       />
     </div>
   )

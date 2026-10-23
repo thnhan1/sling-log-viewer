@@ -3,15 +3,64 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AEM Log Viewer</title>
-    <link rel="icon" type="image/png" href="/logo.png" />
-    <link rel="apple-touch-icon" href="/logo.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
+    <title>Slingtail — Sling / AEM log viewer</title>
+    <meta
+      name="description"
+      content="A modern, minimal, real-time log viewer for Apache Sling and AEM. Tail local files or stream remote instances."
     />
+    <meta name="theme-color" content="#282a36" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta property="og:title" content="Slingtail" />
+    <meta property="og:description" content="A quiet, fast log viewer for Apache Sling and AEM." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/brand/mark.svg" />
+    <link rel="apple-touch-icon" href="/brand/mark.svg" />
+    <script>
+      // Apply the persisted theme before paint to avoid a flash.
+      (function () {
+        try {
+          var raw =
+            localStorage.getItem('slingtail-ui') ||
+            localStorage.getItem('aem-log-viewer-ui')
+          var theme = raw ? JSON.parse(raw).theme : 'dracula'
+          var map = {
+            dark: 'dracula',
+            light: 'github-light',
+            'macos-dark': 'dracula',
+            monokai: 'dracula',
+            'solarized-dark': 'tokyo-night',
+            'ayu-mirage': 'catppuccin-mocha',
+            'everforest-dark': 'gruvbox-dark',
+            'github-dark': 'tokyo-night',
+          }
+          var valid = [
+            'dracula',
+            'tokyo-night',
+            'catppuccin-mocha',
+            'nord',
+            'one-dark',
+            'gruvbox-dark',
+            'github-light',
+            'catppuccin-latte',
+            'solarized-light',
+            'system',
+          ]
+          if (valid.indexOf(theme) === -1) theme = map[theme] || 'dracula'
+          if (theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'github-light'
+              : 'dracula'
+          }
+          var lightThemes = ['github-light', 'catppuccin-latte', 'solarized-light']
+          var mode = lightThemes.indexOf(theme) === -1 ? 'dark' : 'light'
+          document.documentElement.dataset.theme = theme
+          document.documentElement.style.colorScheme = mode
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dracula'
+          document.documentElement.style.colorScheme = 'dark'
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,9 +1,8 @@
 import type { LogLevel } from '@shared/types'
-
-const KEY_PREFIX = 'aem-log-viewer-workspace:v2'
+import { getLegacyWorkspaceKey, getWorkspaceKey, readMigrated, writeStorage } from './storageKeys'
 
 function storageKey(namespace: string): string {
-  return `${KEY_PREFIX}:${namespace || '__default__'}`
+  return getWorkspaceKey(namespace)
 }
 
 export interface SidebarSectionsOpen {
@@ -114,7 +113,7 @@ function migrate(raw: Record<string, unknown>): WorkspacePersisted {
 
 export function readWorkspace(namespace: string): WorkspacePersisted {
   try {
-    const raw = localStorage.getItem(storageKey(namespace))
+    const raw = readMigrated(storageKey(namespace), getLegacyWorkspaceKey(namespace))
     if (!raw) return { ...DEFAULT }
     const p = JSON.parse(raw) as Record<string, unknown>
     return migrate(p)
@@ -124,9 +123,5 @@ export function readWorkspace(namespace: string): WorkspacePersisted {
 }
 
 export function writeWorkspace(p: WorkspacePersisted, namespace: string): void {
-  try {
-    localStorage.setItem(storageKey(namespace), JSON.stringify(p))
-  } catch {
-    /* ignore */
-  }
+  writeStorage(storageKey(namespace), JSON.stringify(p))
 }

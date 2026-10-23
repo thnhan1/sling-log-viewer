@@ -25,16 +25,22 @@ import {
   writeWorkspace,
   type SidebarSectionsOpen,
 } from './lib/workspaceSettings'
-import { SettingsModal } from './components/modals/SettingsModal'
+import { LEGACY_STORAGE_KEYS, STORAGE_KEYS, readMigrated, writeStorage } from './lib/storageKeys'
+import { SettingsModal, type SettingsSection } from './components/modals/SettingsModal'
 import { ConfirmClearModal } from './components/modals/ConfirmClearModal'
 import { LogSidebar } from './components/sidebar/LogSidebar'
 import { LogViewerEmptyState } from './components/main/LogViewerEmptyState'
-import { LogTabPanel } from './components/main/LogTabPanel'
-import { IconSidebarCollapse, IconSidebarExpand, IconX } from './ui/icons'
-
-const LOG_ROOT_KEY = 'aem-log-viewer-log-root'
-const SIDEBAR_OPEN_KEY = 'aem-log-viewer-sidebar-open'
-const REMOTE_PREFS_KEY = 'aem-log-viewer-remote-prefs'
+import { LogTabPanel, type TabActions } from './components/main/LogTabPanel'
+import {
+  IconCopy,
+  IconLogo,
+  IconMoreHorizontal,
+  IconSidebarCollapse,
+  IconSidebarExpand,
+  IconSync,
+  IconTrash,
+  IconX,
+} from './ui/icons'
 
 interface RemotePrefs {
   baseUrl: string
@@ -43,27 +49,36 @@ interface RemotePrefs {
   logFiles: string[]
 }
 
+const EMPTY_REMOTE_PREFS: RemotePrefs = {
+  baseUrl: '',
+  username: '',
+  logPath: 'logs/',
+  logFiles: [],
+}
+
+const DEFAULT_SIDEBAR_SECTIONS: SidebarSectionsOpen = {
+  folder: true,
+  files: true,
+  levels: true,
+}
+
 function readRemotePrefs(): RemotePrefs {
   try {
-    const raw = localStorage.getItem(REMOTE_PREFS_KEY)
-    if (!raw) return { baseUrl: '', username: '', logPath: 'logs/', logFiles: [] }
+    const raw = readMigrated(STORAGE_KEYS.remotePrefs, LEGACY_STORAGE_KEYS.remotePrefs)
+    if (!raw) return { ...EMPTY_REMOTE_PREFS }
     return JSON.parse(raw) as RemotePrefs
   } catch {
-    return { baseUrl: '', username: '', logPath: 'logs/', logFiles: [] }
+    return { ...EMPTY_REMOTE_PREFS }
   }
 }
 
 function saveRemotePrefs(p: RemotePrefs): void {
-  try {
-    localStorage.setItem(REMOTE_PREFS_KEY, JSON.stringify(p))
-  } catch {
-    /* ignore */
-  }
+  writeStorage(STORAGE_KEYS.remotePrefs, JSON.stringify(p))
 }
 
 function readSidebarOpen(): boolean {
   try {
-    return localStorage.getItem(SIDEBAR_OPEN_KEY) !== '0'
+    return readMigrated(STORAGE_KEYS.sidebarOpen, LEGACY_STORAGE_KEYS.sidebarOpen) !== '0'
   } catch {
     return true
   }
@@ -94,23 +109,32 @@ export default function App() {
   const [levelsOff, setLevelsOff] = useState<Set<LogLevel>>(() => new Set())
   const [bookmarks, setBookmarks] = useState<LogBookmark[]>(() => loadBookmarks())
 
-  const [sidebarSec, setSidebarSec] = useState<SidebarSectionsOpen>(() => ({
-    ...readWorkspace('__default__').sidebarSections,
-  }))
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('appearance')
+  const [confirmClearFile, setConfirmClearFile] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const tabActionsRef = useRef<Record<string, TabActions>>({})
 
-  const toggleSidebarSec = useCallback((key: keyof SidebarSectionsOpen) => {
-    setSidebarSec((s) => ({ ...s, [key]: !s[key] }))
+  const registerTabActions = useCallback((file: string, actions: TabActions | null) => {
+    if (actions) tabActionsRef.current[file] = actions
+    else delete tabActionsRef.current[file]
   }, [])
+
+  const openSettings = useCallback((section: SettingsSection = 'appearance') => {
+    setSettingsSection(section)
+    setSettingsOpen(true)
+  }, [])
+
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
 
   // Tab operations
   const openFile = useCallback((file: string) => {
-    setActiveTabId(() => {
-      setTabs((t) => {
-        const exists = t.find((tab) => tab.id === file)
-        if (exists) return t
-        return [...t, { id: file, file }]
-      })
-      return file
+    setActiveTabId(file)
+    setTabs((t) => {
+      if (t.some((tab) => tab.id === file)) return t
+      return [...t, { id: file, file }]
     })
   }, [])
 
@@ -120,7 +144,6 @@ export default function App() {
       if (idx < 0) return t
       const next = [...t]
       next.splice(idx, 1)
-      // If closing the active tab, activate neighbor
       setActiveTabId((active) => {
         if (active !== id) return active
         if (next.length === 0) return null
@@ -131,11 +154,23 @@ export default function App() {
     })
   }, [])
 
+  const activateRelativeTab = useCallback((delta: number) => {
+    setTabs((t) => {
+      if (t.length === 0) return t
+      const idx = t.findIndex((tab) => tab.id === activeTabId)
+      const next = (idx + delta + t.length) % t.length
+      setActiveTabId(t[next].id)
+      return t
+    })
+  }, [activeTabId])
+
   const activeFile = useMemo(() => {
     if (!activeTabId) return null
     const tab = tabs.find((t) => t.id === activeTabId)
     return tab ? tab.file : null
   }, [tabs, activeTabId])
+
+  const activeActions = activeFile ? tabActionsRef.current[activeFile] : undefined
 
   const persistBookmarks = useCallback((updater: (prev: LogBookmark[]) => LogBookmark[]) => {
     setBookmarks((prev) => {
@@ -179,11 +214,7 @@ export default function App() {
       return false
     }
     const resolved = res.rootPath ?? raw
-    try {
-      localStorage.setItem(LOG_ROOT_KEY, resolved)
-    } catch {
-      /* ignore */
-    }
+    writeStorage(STORAGE_KEYS.logRoot, resolved)
     setPathInput(resolved)
     setRootPath(resolved)
     const list = await getFiles()
@@ -204,7 +235,6 @@ export default function App() {
     }
     setSourceModeState(mode)
     setConfigErr(null)
-    // Refresh file list for the new mode
     const list = await getFiles()
     if (list.ok) setFiles(list.files ?? [])
     else setFiles([])
@@ -214,7 +244,6 @@ export default function App() {
     setConfigErr(null)
     setRemoteConnecting(true)
     try {
-      // Strip path prefixes so only bare filenames are sent
       const normalizedFiles = logFiles.map((f) => {
         const parts = f.replace(/\\/g, '/').split('/')
         return parts[parts.length - 1]
@@ -224,14 +253,12 @@ export default function App() {
         setConfigErr(res.error ?? 'Failed to connect')
         return false
       }
-      // Save prefs (without password)
       const prefs: RemotePrefs = { baseUrl, username, logPath, logFiles: normalizedFiles }
       setRemotePrefs(prefs)
       saveRemotePrefs(prefs)
       setSourceModeState('remote')
       setRemoteConfigured(true)
-      setRemotePassword('') // clear password from memory
-      // Refresh file list
+      setRemotePassword('')
       const list = await getFiles()
       if (list.ok) setFiles(list.files ?? [])
       else setFiles([])
@@ -248,12 +275,10 @@ export default function App() {
       if (prev.logFiles.includes(f)) return prev
       const next = { ...prev, logFiles: [...prev.logFiles, f] }
       saveRemotePrefs(next)
-      // Optimistic: update sidebar file list immediately
-      setFiles((files) => {
-        if (files.some((rf) => rf.name === f)) return files
-        return [...files, { name: f, size: 0, mtimeMs: Date.now() }]
+      setFiles((prevFiles) => {
+        if (prevFiles.some((rf) => rf.name === f)) return prevFiles
+        return [...prevFiles, { name: f, size: 0, mtimeMs: Date.now() }]
       })
-      // Sync to server if already connected
       if (remoteConfigured) {
         void postRemoteConfig({
           baseUrl: prev.baseUrl,
@@ -269,22 +294,19 @@ export default function App() {
   }, [remoteConfigured])
 
   const disconnectRemote = useCallback(() => {
-    // Clear local state first (always, even if server call fails)
     setRemoteConfigured(false)
     setRemotePassword('')
     setFiles([])
     setSourceModeState('local')
     setTabs([])
     setActiveTabId(null)
-    saveRemotePrefs({ baseUrl: '', username: '', logPath: 'logs/', logFiles: [] })
-    setRemotePrefs({ baseUrl: '', username: '', logPath: 'logs/', logFiles: [] })
-    // Fire-and-forget server clear
+    saveRemotePrefs({ ...EMPTY_REMOTE_PREFS })
+    setRemotePrefs({ ...EMPTY_REMOTE_PREFS })
     void clearRemoteConfig()
   }, [])
 
   const removeRemoteLogFile = useCallback(
     (fileName: string) => {
-      // Close any open tabs for this file
       setTabs((t) => {
         const next = t.filter((tab) => tab.id !== fileName)
         setActiveTabId((active) => {
@@ -294,14 +316,11 @@ export default function App() {
         })
         return next
       })
-      // Remove from files list immediately
       setFiles((prev) => prev.filter((f) => f.name !== fileName))
-      // Update prefs and sync to server
       setRemotePrefs((prev) => {
         const nextFiles = prev.logFiles.filter((f) => f !== fileName)
         const next = { ...prev, logFiles: nextFiles }
         saveRemotePrefs(next)
-        // Sync to server if already connected (password reused on server)
         if (remoteConfigured) {
           void postRemoteConfig({
             baseUrl: prev.baseUrl,
@@ -317,16 +336,12 @@ export default function App() {
     [remoteConfigured],
   )
 
-  const bootstrapRef = useRef(false)
   useEffect(() => {
-    if (bootstrapRef.current) return
-    bootstrapRef.current = true
     let alive = true
     ;(async () => {
       const defaults = await getDefaults()
       if (!alive) return
 
-      // Restore remote prefs from localStorage if not already set
       if (!remotePrefs.baseUrl && defaults.ok && defaults.envAemUrl) {
         const envFiles = (defaults.envAemLogFiles ?? []).map((f) => f.split('/').pop() || f)
         const prefs: RemotePrefs = {
@@ -339,7 +354,6 @@ export default function App() {
         saveRemotePrefs(prefs)
       }
 
-      // Check current server state
       try {
         const modeRes = await getSourceMode()
         if (alive && modeRes.ok) {
@@ -356,8 +370,8 @@ export default function App() {
           if (modeRes.localRootPath) {
             setRootPath(modeRes.localRootPath)
             setPathInput(modeRes.localRootPath)
+            writeStorage(STORAGE_KEYS.logRoot, modeRes.localRootPath)
           }
-          // Fetch files for current mode
           if (modeRes.configured) {
             const list = await getFiles()
             if (alive && list.ok) setFiles(list.files ?? [])
@@ -367,11 +381,10 @@ export default function App() {
         /* server may not be ready yet */
       }
 
-      // Fallback: if no server config but we have local env/saved path, configure local
       if (!remoteConfigured) {
         let saved = ''
         try {
-          saved = localStorage.getItem(LOG_ROOT_KEY) ?? ''
+          saved = readMigrated(STORAGE_KEYS.logRoot, LEGACY_STORAGE_KEYS.logRoot) ?? ''
         } catch {
           /* ignore */
         }
@@ -379,9 +392,7 @@ export default function App() {
         const initial = saved.trim() || envPath
         if (initial) {
           const ok = await configureRoot(initial)
-          if (alive && ok) {
-            setSourceModeState('local')
-          }
+          if (alive && ok) setSourceModeState('local')
         }
       }
     })()
@@ -393,11 +404,7 @@ export default function App() {
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((s) => {
       const next = !s
-      try {
-        localStorage.setItem(SIDEBAR_OPEN_KEY, next ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
+      writeStorage(STORAGE_KEYS.sidebarOpen, next ? '1' : '0')
       return next
     })
   }, [])
@@ -406,8 +413,6 @@ export default function App() {
   const workspaceHydratedRef = useRef<string | null>(null)
   const tabsRestoredRef = useRef(false)
 
-  // Derive a workspace identity key that works for both local and remote modes.
-  // Local mode: keyed by rootPath. Remote mode: keyed by the AEM base URL.
   const workspaceKey = useMemo(() => {
     if (sourceMode === 'remote' && remoteConfigured) return remotePrefs.baseUrl || '__remote__'
     return rootPath
@@ -420,13 +425,10 @@ export default function App() {
 
     if (workspaceHydratedRef.current !== workspaceKey) {
       workspaceHydratedRef.current = workspaceKey
-      // Reset per-workspace flags so tab restoration fires for the new identity
       tabsRestoredRef.current = false
       setFileSearch(ws.fileSearch)
       setLevelsOff(new Set(ws.levelsOff))
-      setSidebarSec({ ...ws.sidebarSections })
 
-      // Restore tabs
       if (!tabsRestoredRef.current && ws.openTabs.length > 0) {
         tabsRestoredRef.current = true
         const validTabs = ws.openTabs
@@ -456,13 +458,13 @@ export default function App() {
         timeFromStr: '',
         timeToStr: '',
         bookmarksOpen: false,
-        sidebarSections: sidebarSec,
-        openTabs: tabs.map((t) => t.file),
+        sidebarSections: DEFAULT_SIDEBAR_SECTIONS,
+        openTabs: tabs.map((tab) => tab.file),
         activeTabFile: activeFile,
       }, workspaceKey ?? '__default__')
     }, 400)
     return () => clearTimeout(t)
-  }, [workspaceKey, activeFile, fileSearch, levelsOff, sidebarSec, tabs])
+  }, [workspaceKey, activeFile, fileSearch, levelsOff, tabs])
 
   const filteredFiles = useMemo(() => {
     const q = fileSearch.trim().toLowerCase()
@@ -470,18 +472,14 @@ export default function App() {
     return files.filter((f) => f.name.toLowerCase().includes(q))
   }, [files, fileSearch])
 
-  const toggleLevel = (l: LogLevel) => {
+  const toggleLevel = useCallback((l: LogLevel) => {
     setLevelsOff((prev) => {
       const next = new Set(prev)
       if (next.has(l)) next.delete(l)
       else next.add(l)
       return next
     })
-  }
-
-  const [confirmClearFile, setConfirmClearFile] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0)
+  }, [])
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -501,6 +499,48 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [confirmClearFile])
 
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [menuOpen])
+
+  // Global shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      if (mod && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        toggleSidebar()
+        return
+      }
+      if (mod && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        document.getElementById('log-search')?.focus()
+        return
+      }
+      if (mod && e.key.toLowerCase() === 'r') {
+        e.preventDefault()
+        if (activeFile) tabActionsRef.current[activeFile]?.reload()
+        return
+      }
+      if (e.altKey && e.key === 'ArrowDown') {
+        e.preventDefault()
+        activateRelativeTab(1)
+        return
+      }
+      if (e.altKey && e.key === 'ArrowUp') {
+        e.preventDefault()
+        activateRelativeTab(-1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggleSidebar, activeFile, activateRelativeTab])
+
   const doClearFile = async () => {
     if (!activeFile) return
     const res = await clearLogFile(activeFile)
@@ -509,93 +549,93 @@ export default function App() {
       return
     }
     setConfirmClearFile(false)
-    // Refresh file list so sidebar sizes update
     const list = await getFiles()
     if (list.ok) setFiles(list.files ?? [])
-    // Trigger tab to reload its stream
     setRefreshKey((k) => k + 1)
   }
 
+  const copyActivePath = useCallback(() => {
+    if (!activeFile) return
+    void navigator.clipboard?.writeText(activeFile)
+    setMenuOpen(false)
+  }, [activeFile])
+
   return (
-    <div className="relative flex h-full min-h-0 overflow-hidden">
+    <div className="relative flex h-full min-h-0 overflow-hidden bg-bg">
       <LogSidebar
         open={sidebarOpen}
-        sidebarSec={sidebarSec}
-        toggleSidebarSec={toggleSidebarSec}
-        onToggleSidebar={toggleSidebar}
-        pathInput={pathInput}
-        setPathInput={setPathInput}
-        onConfigureRoot={(p) => void configureRoot(p)}
+        sourceMode={sourceMode}
+        onSwitchSourceMode={(m) => void switchSourceMode(m)}
+        remoteConfigured={remoteConfigured}
+        remoteBaseUrl={remotePrefs.baseUrl}
         rootPath={rootPath}
-        configErr={configErr}
         fileSearch={fileSearch}
         setFileSearch={setFileSearch}
         filteredFiles={filteredFiles}
         selectedFile={activeFile}
         onSelectFile={openFile}
-        levelsOff={levelsOff}
-        onToggleLevel={toggleLevel}
-        onOpenSettings={() => setSettingsOpen(true)}
-        sourceMode={sourceMode}
-        onSwitchSourceMode={(m) => void switchSourceMode(m)}
-        remoteConfigured={remoteConfigured}
+        onOpenSettings={openSettings}
       />
 
-      <main className={`flex min-w-0 min-h-0 flex-1 flex-col transition-[margin] duration-250 ease-out ${sidebarOpen ? 'ml-[260px]' : ''}`}>
-        {/* Unified toolbar: traffic lights + sidebar toggle + tab strip */}
-        <div className="flex shrink-0 items-center h-[38px] glass-toolbar border-b border-border select-none">
-          {/* Traffic light window controls */}
-          <div className="flex items-center gap-1.5 pl-3">
-            <span className="traffic-light traffic-light--red" />
-            <span className="traffic-light traffic-light--yellow" />
-            <span className="traffic-light traffic-light--green" />
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="topbar">
+          <div className="flex items-center gap-0.5">
+            {!sidebarOpen && (
+              <div className="flex items-center gap-1.5 px-1.5">
+                <IconLogo size={15} className="text-text" />
+                <span className="text-[12px] font-medium tracking-[-0.01em] text-text">
+                  slingtail
+                </span>
+              </div>
+            )}
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={toggleSidebar}
+              title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              aria-expanded={sidebarOpen}
+            >
+              {sidebarOpen ? <IconSidebarCollapse size={15} /> : <IconSidebarExpand size={15} />}
+            </button>
           </div>
 
-          {/* Sidebar toggle */}
-          <button
-            type="button"
-            className="btn-macos shrink-0 flex items-center gap-1 mx-1"
-            onClick={toggleSidebar}
-            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-            aria-expanded={sidebarOpen}
+          <div
+            className="flex h-full min-w-0 flex-1 items-center overflow-x-auto"
+            role="tablist"
+            aria-label="Open log files"
           >
-            <span className="text-ui-xs">
-              {sidebarOpen ? <IconSidebarCollapse size={14} /> : <IconSidebarExpand size={14} />}
-            </span>
-          </button>
-
-          {/* Tab strip */}
-          <div className="flex items-center h-full min-w-0 flex-1 overflow-x-auto">
             {tabs.length === 0 ? (
-              <div className="flex items-center px-2 text-muted text-ui">
-                No file selected
-              </div>
+              <span className="px-2 text-[12px] text-tertiary">No file open</span>
             ) : (
               tabs.map((tab) => {
                 const isActive = tab.id === activeTabId
                 return (
                   <div
                     key={tab.id}
-                    className={`flex items-center h-full shrink-0 cursor-pointer group ${
-                      isActive
-                        ? 'bg-bg border-b-2 border-accent text-text'
-                        : 'text-muted hover:bg-[rgba(255,255,255,0.03)] border-b-2 border-transparent'
-                    }`}
+                    className={`tab ${isActive ? 'is-active' : ''}`}
                     onClick={() => setActiveTabId(tab.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setActiveTabId(tab.id)
+                      }
+                    }}
+                    role="tab"
+                    aria-selected={isActive}
+                    tabIndex={isActive ? 0 : -1}
+                    title={tab.file}
                   >
-                    <span className="px-3 text-ui truncate max-w-[180px]">{tab.file}</span>
+                    <span className="truncate">{tab.file}</span>
                     <button
                       type="button"
-                      className={`shrink-0 mr-1.5 w-4 h-4 flex items-center justify-center rounded-full text-ui-sm transition-colors ${
-                        isActive
-                          ? 'text-muted hover:text-text hover:bg-[rgba(255,255,255,0.12)]'
-                          : 'text-transparent group-hover:text-muted hover:!text-text hover:bg-[rgba(255,255,255,0.08)]'
-                      }`}
+                      className="tab-close"
                       onClick={(e) => {
                         e.stopPropagation()
                         closeTab(tab.id)
                       }}
                       title="Close tab"
+                      aria-label={`Close ${tab.file}`}
                     >
                       <IconX size={11} />
                     </button>
@@ -604,11 +644,110 @@ export default function App() {
               })
             )}
           </div>
-        </div>
 
-        {/* Tab panels */}
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              className="icon-btn"
+              disabled={!activeFile}
+              onClick={() => activeActions?.reload()}
+              title="Reload active log"
+              aria-label="Reload active log"
+            >
+              <IconSync size={15} />
+            </button>
+            <div ref={menuRef} className="relative">
+              <button
+                type="button"
+                className={`icon-btn ${menuOpen ? 'is-active' : ''}`}
+                onClick={() => setMenuOpen((o) => !o)}
+                title="More actions"
+                aria-label="More actions"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+              >
+                <IconMoreHorizontal size={16} />
+              </button>
+              {menuOpen && (
+                <div className="popover absolute right-0 top-full z-50 mt-1 w-[196px] p-1" role="menu">
+                  <button
+                    type="button"
+                    className="menu-item"
+                    role="menuitem"
+                    disabled={!activeActions}
+                    onClick={() => {
+                      activeActions?.clearView()
+                      setMenuOpen(false)
+                    }}
+                  >
+                    Clear view
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    role="menuitem"
+                    disabled={!activeFile}
+                    onClick={copyActivePath}
+                  >
+                    <IconCopy size={13} />
+                    Copy path
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    role="menuitem"
+                    disabled={!activeActions}
+                    onClick={() => {
+                      activeActions?.reload()
+                      setMenuOpen(false)
+                    }}
+                  >
+                    <IconSync size={13} />
+                    Reload tail
+                  </button>
+                  {sourceMode !== 'remote' && (
+                    <>
+                      <div className="menu-separator" />
+                      <button
+                        type="button"
+                        className="menu-item is-danger"
+                        role="menuitem"
+                        disabled={!activeFile}
+                        onClick={() => {
+                          setMenuOpen(false)
+                          setConfirmClearFile(true)
+                        }}
+                      >
+                        <IconTrash size={13} />
+                        Clear file…
+                      </button>
+                    </>
+                  )}
+                  <div className="menu-separator" />
+                  <button
+                    type="button"
+                    className="menu-item"
+                    role="menuitem"
+                    disabled={!activeTabId}
+                    onClick={() => {
+                      if (activeTabId) closeTab(activeTabId)
+                      setMenuOpen(false)
+                    }}
+                  >
+                    <IconX size={13} />
+                    Close tab
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
         {tabs.length === 0 ? (
-          <LogViewerEmptyState selected={false} />
+          <LogViewerEmptyState
+            onChooseFolder={() => openSettings('connection')}
+            onConnect={() => openSettings('connection')}
+          />
         ) : (
           tabs.map((tab) => (
             <LogTabPanel
@@ -617,12 +756,11 @@ export default function App() {
               active={tab.id === activeTabId}
               refreshKey={refreshKey}
               levelsOff={levelsOff}
+              onToggleLevel={toggleLevel}
               bookmarks={bookmarks}
               onToggleLineBookmark={toggleLineBookmark}
               onRemoveBookmark={removeBm}
-              onRequestClearFile={() => setConfirmClearFile(true)}
-              onOpenSettings={() => setSettingsOpen(true)}
-              sourceMode={sourceMode}
+              onRegisterActions={registerTabActions}
             />
           ))
         )}
@@ -631,7 +769,8 @@ export default function App() {
       <SettingsModal
         open={settingsOpen}
         ui={ui}
-        onClose={() => setSettingsOpen(false)}
+        onClose={closeSettings}
+        initialSection={settingsSection}
         remotePrefs={remotePrefs}
         setRemotePrefs={setRemotePrefs}
         remotePassword={remotePassword}
@@ -644,6 +783,13 @@ export default function App() {
         onAddRemoteLogFile={addRemoteLogFile}
         onRemoveRemoteLogFile={removeRemoteLogFile}
         onDisconnectRemote={() => void disconnectRemote()}
+        sourceMode={sourceMode}
+        onSwitchSourceMode={(m) => void switchSourceMode(m)}
+        localPathInput={pathInput}
+        setLocalPathInput={setPathInput}
+        onConfigureRoot={(p) => void configureRoot(p)}
+        rootPath={rootPath}
+        configErr={configErr}
       />
       <ConfirmClearModal
         open={confirmClearFile}
