@@ -98,8 +98,8 @@
   --border-strong: #6272a4;
 
   --text: #f8f8f2;
-  --text-secondary: #bdc1d6;
-  --text-tertiary: #6272a4;
+  --text-secondary: #cfcfc6;
+  --text-tertiary: #7c8bbd;
 
   --accent: #bd93f9;
   --accent-contrast: #21222c;
@@ -109,10 +109,10 @@
   --sev-warning: #ffb86c;
   --sev-info: #8be9fd;
   --sev-debug: #50fa7b;
-  --sev-trace: #6272a4;
+  --sev-trace: #7c8bbd;
 
-  --log-timestamp: #6272a4;
-  --log-thread: #8be9fd;
+  --log-timestamp: #7c8bbd;
+  --log-thread: #50fa7b;
   --log-message: #f8f8f2;
   --log-method: #ff79c6;
   --log-path: #8be9fd;
@@ -120,330 +120,130 @@
   --log-string: #f1fa8c;
   --log-number: #bd93f9;
   --log-exception: #ff5555;
-  --log-bracket: #6272a4;
-  --log-key: #50fa7b;
-  --log-operator: #6272a4;
+  --log-bracket: #7c8bbd;
+  --log-key: #bd93f9;
+  --log-operator: #7c8bbd;
   --log-value: #f1fa8c;
-}
-
-/* ── Tokyo Night ── */
-[data-theme="tokyo-night"] {
-  color-scheme: dark;
-
-  --bg: #1a1b26;
-  --surface: #16161e;
-  --surface-raised: #24283b;
-  --surface-hover: #292e42;
-  --border: #2f334d;
-  --border-strong: #3b4261;
-
-  --text: #c0caf5;
-  --text-secondary: #a9b1d6;
-  --text-tertiary: #565f89;
-
-  --accent: #7aa2f7;
-  --accent-contrast: #16161e;
-
-  --danger: #f7768e;
-  --sev-error: #f7768e;
-  --sev-warning: #e0af68;
-  --sev-info: #7dcfff;
-  --sev-debug: #9ece6a;
-  --sev-trace: #565f89;
-
-  --log-timestamp: #565f89;
-  --log-thread: #7dcfff;
-  --log-message: #c0caf5;
-  --log-method: #bb9af7;
-  --log-path: #7dcfff;
-  --log-fqcn: #e0af68;
-  --log-string: #9ece6a;
-  --log-number: #ff9e64;
-  --log-exception: #f7768e;
-  --log-bracket: #565f89;
-  --log-key: #73daca;
-  --log-operator: #89ddff;
-  --log-value: #9ece6a;
-}
-
-/* ── Catppuccin Mocha ── */
-[data-theme="catppuccin-mocha"] {
-  color-scheme: dark;
-
-  --bg: #1e1e2e;
-  --surface: #181825;
-  --surface-raised: #313244;
-  --surface-hover: #45475a;
-  --border: #313244;
-  --border-strong: #585b70;
-
-  --text: #cdd6f4;
-  --text-secondary: #a6adc8;
-  --text-tertiary: #6c7086;
-
-  --accent: #cba6f7;
-  --accent-contrast: #1e1e2e;
-
-  --danger: #f38ba8;
-  --sev-error: #f38ba8;
-  --sev-warning: #fab387;
-  --sev-info: #89b4fa;
-  --sev-debug: #a6e3a1;
-  --sev-trace: #6c7086;
-
-  --log-timestamp: #6c7086;
-  --log-thread: #89dceb;
-  --log-message: #cdd6f4;
-  --log-method: #cba6f7;
-  --log-path: #89b4fa;
-  --log-fqcn: #fab387;
-  --log-string: #a6e3a1;
-  --log-number: #f9e2af;
-  --log-exception: #f38ba8;
-  --log-bracket: #6c7086;
-  --log-key: #a6e3a1;
-  --log-operator: #94e2d5;
-  --log-value: #89b4fa;
-}
-
-/* ── Nord ── */
-[data-theme="nord"] {
-  color-scheme: dark;
-
-  --bg: #2e3440;
-  --surface: #272b36;
-  --surface-raised: #3b4252;
-  --surface-hover: #434c5e;
-  --border: #3b4252;
-  --border-strong: #4c566a;
-
-  --text: #eceff4;
-  --text-secondary: #d8dee9;
-  --text-tertiary: #7b88a1;
-
-  --accent: #88c0d0;
-  --accent-contrast: #2e3440;
-
-  --danger: #bf616a;
-  --sev-error: #bf616a;
-  --sev-warning: #ebcb8b;
-  --sev-info: #81a1c1;
-  --sev-debug: #a3be8c;
-  --sev-trace: #7b88a1;
-
-  --log-timestamp: #7b88a1;
-  --log-thread: #88c0d0;
-  --log-message: #eceff4;
-  --log-method: #8fbcbb;
-  --log-path: #81a1c1;
-  --log-fqcn: #ebcb8b;
-  --log-string: #a3be8c;
-  --log-number: #b48ead;
-  --log-exception: #bf616a;
-  --log-bracket: #7b88a1;
-  --log-key: #a3be8c;
-  --log-operator: #81a1c1;
-  --log-value: #ebcb8b;
-}
-
-/* ── One Dark ── */
-[data-theme="one-dark"] {
-  color-scheme: dark;
-
-  --bg: #282c34;
-  --surface: #21252b;
-  --surface-raised: #2c313a;
-  --surface-hover: #353b45;
-  --border: #353b45;
-  --border-strong: #4b5263;
-
-  --text: #abb2bf;
-  --text-secondary: #9da5b4;
-  --text-tertiary: #5c6370;
-
-  --accent: #61afef;
-  --accent-contrast: #21252b;
-
-  --danger: #e06c75;
-  --sev-error: #e06c75;
-  --sev-warning: #e5c07b;
-  --sev-info: #56b6c2;
-  --sev-debug: #98c379;
-  --sev-trace: #5c6370;
-
-  --log-timestamp: #5c6370;
-  --log-thread: #56b6c2;
-  --log-message: #abb2bf;
-  --log-method: #c678dd;
-  --log-path: #61afef;
-  --log-fqcn: #e5c07b;
-  --log-string: #98c379;
-  --log-number: #d19a66;
-  --log-exception: #e06c75;
-  --log-bracket: #5c6370;
-  --log-key: #98c379;
-  --log-operator: #56b6c2;
-  --log-value: #e5c07b;
-}
-
-/* ── Gruvbox Dark ── */
-[data-theme="gruvbox-dark"] {
-  color-scheme: dark;
-
-  --bg: #282828;
-  --surface: #1d2021;
-  --surface-raised: #32302f;
-  --surface-hover: #3c3836;
-  --border: #3c3836;
-  --border-strong: #504945;
-
-  --text: #ebdbb2;
-  --text-secondary: #d5c4a1;
-  --text-tertiary: #928374;
-
-  --accent: #d79921;
-  --accent-contrast: #282828;
-
-  --danger: #fb4934;
-  --sev-error: #fb4934;
-  --sev-warning: #fabd2f;
-  --sev-info: #83a598;
-  --sev-debug: #b8bb26;
-  --sev-trace: #928374;
-
-  --log-timestamp: #928374;
-  --log-thread: #83a598;
-  --log-message: #ebdbb2;
-  --log-method: #fb4934;
-  --log-path: #83a598;
-  --log-fqcn: #fabd2f;
-  --log-string: #b8bb26;
-  --log-number: #d3869b;
-  --log-exception: #fb4934;
-  --log-bracket: #928374;
-  --log-key: #b8bb26;
-  --log-operator: #83a598;
-  --log-value: #fabd2f;
 }
 
 /* ── GitHub Light ── */
 [data-theme="github-light"] {
   color-scheme: light;
 
-  --bg: #ffffff;
-  --surface: #f6f8fa;
-  --surface-raised: #eef1f4;
-  --surface-hover: #e7ebef;
-  --border: #d0d7de;
-  --border-strong: #afb8c1;
+  --bg: #fafbfc;
+  --surface: #f0f2f5;
+  --surface-raised: #e9ecf0;
+  --surface-hover: #dfe3e8;
+  --border: #d3d9e0;
+  --border-strong: #9ba4af;
 
   --text: #1f2328;
-  --text-secondary: #57606a;
-  --text-tertiary: #6e7781;
+  --text-secondary: #424a53;
+  --text-tertiary: #5f6873;
 
-  --accent: #0969da;
+  --accent: #0550ae;
   --accent-contrast: #ffffff;
 
-  --danger: #cf222e;
-  --sev-error: #cf222e;
-  --sev-warning: #bf8700;
-  --sev-info: #0969da;
-  --sev-debug: #1a7f37;
-  --sev-trace: #6e7781;
+  --danger: #b5202c;
+  --sev-error: #b5202c;
+  --sev-warning: #8a5f00;
+  --sev-info: #0550ae;
+  --sev-debug: #17692e;
+  --sev-trace: #5f6873;
 
-  --log-timestamp: #6e7781;
-  --log-thread: #0969da;
+  --log-timestamp: #5f6873;
+  --log-thread: #0550ae;
   --log-message: #1f2328;
   --log-method: #8250df;
-  --log-path: #0969da;
+  --log-path: #0550ae;
   --log-fqcn: #953800;
   --log-string: #0a3069;
   --log-number: #0550ae;
-  --log-exception: #cf222e;
-  --log-bracket: #6e7781;
-  --log-key: #1a7f37;
-  --log-operator: #57606a;
+  --log-exception: #b5202c;
+  --log-bracket: #5f6873;
+  --log-key: #17692e;
+  --log-operator: #424a53;
   --log-value: #0a3069;
 }
 
-/* ── Catppuccin Latte ── */
-[data-theme="catppuccin-latte"] {
-  color-scheme: light;
+/* ── GitHub Dark ── */
+[data-theme="github-dark"] {
+  color-scheme: dark;
 
-  --bg: #eff1f5;
-  --surface: #e6e9ef;
-  --surface-raised: #dce0e8;
-  --surface-hover: #ccd0da;
-  --border: #ccd0da;
-  --border-strong: #bcc0cc;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-raised: #21262d;
+  --surface-hover: #30363d;
+  --border: #30363d;
+  --border-strong: #484f58;
 
-  --text: #4c4f69;
-  --text-secondary: #5c5f77;
-  --text-tertiary: #8c8fa1;
+  --text: #e6edf3;
+  --text-secondary: #9198a1;
+  --text-tertiary: #7d8590;
 
-  --accent: #7287fd;
-  --accent-contrast: #eff1f5;
+  --accent: #58a6ff;
+  --accent-contrast: #0d1117;
 
-  --danger: #d20f39;
-  --sev-error: #d20f39;
-  --sev-warning: #df8e1d;
-  --sev-info: #1e66f5;
-  --sev-debug: #40a02b;
-  --sev-trace: #8c8fa1;
+  --danger: #f85149;
+  --sev-error: #f85149;
+  --sev-warning: #d29922;
+  --sev-info: #58a6ff;
+  --sev-debug: #3fb950;
+  --sev-trace: #7d8590;
 
-  --log-timestamp: #8c8fa1;
-  --log-thread: #1e66f5;
-  --log-message: #4c4f69;
-  --log-method: #8839ef;
-  --log-path: #1e66f5;
-  --log-fqcn: #fe640b;
-  --log-string: #40a02b;
-  --log-number: #fe640b;
-  --log-exception: #d20f39;
-  --log-bracket: #8c8fa1;
-  --log-key: #40a02b;
-  --log-operator: #179299;
-  --log-value: #1e66f5;
+  --log-timestamp: #7d8590;
+  --log-thread: #56d4dd;
+  --log-message: #e6edf3;
+  --log-method: #d2a8ff;
+  --log-path: #79c0ff;
+  --log-fqcn: #ffa657;
+  --log-string: #a5d6ff;
+  --log-number: #ffa657;
+  --log-exception: #ff7b72;
+  --log-bracket: #7d8590;
+  --log-key: #7ee787;
+  --log-operator: #ff7b72;
+  --log-value: #a5d6ff;
 }
 
-/* ── Solarized Light ── */
-[data-theme="solarized-light"] {
-  color-scheme: light;
+/* ── Default (New Relic) ── */
+[data-theme="default"] {
+  color-scheme: dark;
 
-  --bg: #fdf6e3;
-  --surface: #eee8d5;
-  --surface-raised: #e6dfc8;
-  --surface-hover: #ddd6bf;
-  --border: #d9d2bf;
-  --border-strong: #c9c2ae;
+  --bg: #0c223f;
+  --surface: #081a30;
+  --surface-raised: #14304f;
+  --surface-hover: #1c3c61;
+  --border: #2a4566;
+  --border-strong: #3e5a7e;
 
-  --text: #657b83;
-  --text-secondary: #586e75;
-  --text-tertiary: #93a1a1;
+  --text: #f6f8fa;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #7b8794;
 
-  --accent: #268bd2;
-  --accent-contrast: #fdf6e3;
+  --accent: #0091ff;
+  --accent-contrast: #0c223f;
 
-  --danger: #dc322f;
-  --sev-error: #dc322f;
-  --sev-warning: #b58900;
-  --sev-info: #268bd2;
-  --sev-debug: #859900;
-  --sev-trace: #93a1a1;
+  --danger: #ff4f5e;
+  --sev-error: #ff4f5e;
+  --sev-warning: #ffc247;
+  --sev-info: #0091ff;
+  --sev-debug: #1ce783;
+  --sev-trace: #7b8794;
 
-  --log-timestamp: #93a1a1;
-  --log-thread: #2aa198;
-  --log-message: #657b83;
-  --log-method: #6c71c4;
-  --log-path: #268bd2;
-  --log-fqcn: #b58900;
-  --log-string: #2aa198;
-  --log-number: #d33682;
-  --log-exception: #dc322f;
-  --log-bracket: #93a1a1;
-  --log-key: #859900;
-  --log-operator: #586e75;
-  --log-value: #2aa198;
+  --log-timestamp: #7b8794;
+  --log-thread: #0091ff;
+  --log-message: #f6f8fa;
+  --log-method: #1ce783;
+  --log-path: #d1d5db;
+  --log-fqcn: #ffc247;
+  --log-string: #ffc247;
+  --log-number: #0091ff;
+  --log-exception: #ff4f5e;
+  --log-bracket: #7b8794;
+  --log-key: #1ce783;
+  --log-operator: #7b8794;
+  --log-value: #ffc247;
 }
 
 /* Derived tokens shared by every theme. */
@@ -455,6 +255,7 @@
   --highlight-strong: color-mix(in srgb, var(--accent) 32%, transparent);
   --highlight-row: color-mix(in srgb, var(--accent) 6%, transparent);
   --highlight-text: var(--text);
+  --badge-text: var(--accent-contrast);
   --scrollbar-thumb: color-mix(in srgb, var(--text) 18%, transparent);
   --scrollbar-thumb-hover: color-mix(in srgb, var(--text) 30%, transparent);
 }
@@ -1064,33 +865,33 @@ select.field option {
 }
 
 .lv-level--ERROR {
-  color: var(--sev-error);
-  background: color-mix(in srgb, var(--sev-error) 16%, transparent);
+  color: var(--badge-text);
+  background: var(--sev-error);
 }
 
 .lv-level--WARN {
-  color: var(--sev-warning);
-  background: color-mix(in srgb, var(--sev-warning) 16%, transparent);
+  color: var(--badge-text);
+  background: var(--sev-warning);
 }
 
 .lv-level--INFO {
-  color: var(--sev-info);
-  background: color-mix(in srgb, var(--sev-info) 14%, transparent);
+  color: var(--badge-text);
+  background: var(--sev-info);
 }
 
 .lv-level--DEBUG {
-  color: var(--sev-debug);
-  background: color-mix(in srgb, var(--sev-debug) 14%, transparent);
+  color: var(--badge-text);
+  background: var(--sev-debug);
 }
 
 .lv-level--TRACE {
-  color: var(--sev-trace);
-  background: color-mix(in srgb, var(--sev-trace) 14%, transparent);
+  color: var(--badge-text);
+  background: var(--sev-trace);
 }
 
 .lv-level--UNKNOWN {
-  color: var(--text-tertiary);
-  background: color-mix(in srgb, var(--text-tertiary) 12%, transparent);
+  color: var(--text-secondary);
+  background: var(--surface-hover);
 }
 
 /* ==========================================================================

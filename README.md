@@ -67,7 +67,7 @@ The app can also be configured entirely from the UI — folder path, remote conn
 - Click a bookmark to jump to that line
 
 ### UI
-- **10 themes** — Dracula, Tokyo Night, Catppuccin Mocha, Nord, One Dark, Gruvbox Dark, GitHub Light, Catppuccin Latte, Solarized Light, and System
+- **4 themes** — Dracula, GitHub Light, GitHub Dark, and Default (New Relic palette)
 - **Custom fonts** — 7 UI font stacks, 6 monospace stacks, or custom CSS; Inter and JetBrains Mono are self-hosted
 - **Font sizing** — independent UI and log font size controls (10–28px)
 - **Sidebar** — a quiet source switcher and file list

@@ -265,32 +265,19 @@ function Appearance({ ui }: { ui: UiSettingsHandle }) {
               aria-pressed={ui.theme === t.id}
             >
               <div className="theme-preview">
-                {t.id === 'system' ? (
-                  <>
-                    <div className="flex w-1/2 flex-col justify-between p-1.5" style={{ background: '#08080a' }}>
-                      <span className="h-1 w-6 rounded-full bg-white/80" />
-                      <span className="h-1 w-8 rounded-full bg-white/30" />
-                    </div>
-                    <div className="flex w-1/2 flex-col justify-between p-1.5" style={{ background: '#ffffff' }}>
-                      <span className="h-1 w-6 rounded-full bg-black/80" />
-                      <span className="h-1 w-8 rounded-full bg-black/30" />
-                    </div>
-                  </>
-                ) : (
-                  <div
-                    className="flex w-full flex-col justify-between p-1.5"
-                    style={{ background: t.preview.bg }}
-                  >
-                    <span
-                      className="h-1 w-8 rounded-full"
-                      style={{ background: t.preview.accent }}
-                    />
-                    <span
-                      className="h-1 w-10 rounded-full"
-                      style={{ background: t.preview.text, opacity: 0.35 }}
-                    />
-                  </div>
-                )}
+                <div
+                  className="flex w-full flex-col justify-between p-1.5"
+                  style={{ background: t.preview.bg }}
+                >
+                  <span
+                    className="h-1 w-8 rounded-full"
+                    style={{ background: t.preview.accent }}
+                  />
+                  <span
+                    className="h-1 w-10 rounded-full"
+                    style={{ background: t.preview.text, opacity: 0.35 }}
+                  />
+                </div>
               </div>
               <span className="flex items-center justify-between gap-2">
                 <span className="truncate text-[11px] font-medium text-text">{t.label}</span>
